@@ -1,0 +1,24 @@
+{
+  "ami_servers": [
+    {
+      "id": "teste-1",
+      "host": "localhost",
+      "port": 5038,
+      "username": "amigow",
+      "password": "TNwVn82RCNMXgA",
+      "webhooks": [
+        {
+          "url": "https://frankly-relaxing-hornet.ngrok-free.app/api/ami-webhook",
+          "timeout_seconds": 10,
+          "events_filter": ["answer", "hangup", "missed", "invite"]
+        }
+      ]
+    }
+  ],
+  "config_api_url": "http://localhost:9000/config",
+  "config_refresh_minutes": 5
+}
+
+
+
+

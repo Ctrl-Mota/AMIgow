@@ -1,0 +1,161 @@
+---
+alwaysApply: true
+---
+
+## 🎯 Objetivo do projeto
+Criar um serviço simples, legível e previsível em Go para:
+- Conectar ao AMI do Asterisk via TCP
+- Ler e interpretar eventos
+- Enviar webhooks HTTP para uma API externa
+- Rodar como serviço long-running (Docker/VPS)
+
+O foco é **clareza > performance extrema > abstrações avançadas**.
+
+---
+
+## 🧠 Princípios obrigatórios
+
+1. **Código explícito é melhor que código inteligente**
+   - Prefira `if`, `for`, structs simples
+   - Evite padrões avançados sem necessidade
+
+2. **Nada de abstrações mágicas**
+   - ❌ Não usar reflection
+   - ❌ Não usar generics
+   - ❌ Não criar frameworks internos
+   - ❌ Não criar DSLs
+   - ❌ Não usar metaprogramação
+
+3. **Tudo precisa ser auditável por leitura**
+   - Eu devo conseguir entender o fluxo lendo o arquivo de cima para baixo
+   - Funções não devem ter efeitos colaterais escondidos
+
+---
+
+## 📦 Organização de código (obrigatória)
+
+Estrutura máxima permitida:
+
+
+/cmd/main.go
+/internal/
+ami/
+client.go
+parser.go
+webhook/
+sender.go
+config/
+config.go
+
+
+❌ Não criar mais pastas sem justificar  
+❌ Não criar pacotes genéricos tipo `utils`, `helpers`, `common`
+
+---
+
+## 🔒 Regras de dependências
+
+- Usar **apenas a standard library do Go**, exceto:
+  - HTTP client padrão (`net/http`)
+- ❌ Não usar frameworks
+- ❌ Não usar ORMs
+- ❌ Não usar libs de retry, circuit breaker ou DI
+
+Tudo deve ser **manual e explícito**.
+
+---
+
+## 🧵 Concorrência (muito importante)
+
+- Goroutines **somente quando estritamente necessário**
+- Toda goroutine deve:
+  - Ter propósito claro
+  - Ter canal de entrada/saída explícito
+
+Modelo sugerido:
+- 1 goroutine para cada leitura do AMI
+- 1 para cada canal de eventos
+- 1 goroutine para envio de webhooks
+
+---
+
+## 📡 AMI (Asterisk Manager Interface)
+
+- Conexão via TCP simples (`net.Conn`)
+- Parsing de eventos:
+  - Linha por linha
+  - Eventos representados como `map[string]string`
+- ❌ Não criar parser complexo
+- ❌ Não normalizar eventos em structs grandes
+
+---
+
+## 🌐 Webhooks
+
+- Envio via `http.Client`
+- Timeout explícito
+- Payload JSON simples
+- Retry:
+  - Máximo 1 retry
+  - Sem backoff exponencial
+- Falha no webhook **não pode derrubar o AMI**
+
+---
+
+## 🧪 Logs e debug
+
+- Usar apenas `log.Println`
+- Logs devem indicar:
+  - Conectou / desconectou do AMI
+  - Evento recebido
+  - Webhook enviado / falhou
+- ❌ Nada de log estruturado
+- ❌ Nada de observability stack
+
+---
+
+## ⚠️ O que a IA NÃO pode fazer sem pedir permissão
+
+A IA **deve parar e pedir confirmação** antes de:
+
+- Introduzir patterns avançados
+- Usar conceitos como:
+  - Context propagation complexa
+  - Middleware
+  - Interfaces genéricas
+  - State machines
+- Refatorar múltiplos arquivos de uma vez
+- “Otimizar performance” sem benchmark
+
+---
+
+## ✅ Como a IA deve responder
+
+Sempre seguir este formato:
+
+1. **O que será feito**
+2. **Por que é simples**
+3. **Código**
+4. **Como testar manualmente**
+5. **O que pode dar errado**
+
+Se não conseguir seguir esse formato → não responder.
+
+---
+
+## 🛑 Critério de rejeição
+
+Se o código:
+- Parece “engenhoso demais”
+- Tem comentários explicando conceitos avançados
+- Usa termos como *elegant*, *clever*, *powerful abstraction*
+
+👉 então **está errado**.
+
+---
+
+## 🧩 Regra final (a mais importante)
+
+> Se eu não conseguir explicar o código em voz alta em 2 minutos,
+> ele não deve existir.
+

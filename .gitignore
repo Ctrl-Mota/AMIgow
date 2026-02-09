@@ -1,0 +1,32 @@
+# Binários
+amigow
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Go workspace
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+ami_stream_*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Air
+tmp/
+config.json
