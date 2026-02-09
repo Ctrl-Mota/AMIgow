@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 
 	goami "github.com/heltonmarx/goami/ami"
@@ -22,7 +21,6 @@ type AsteriskManager struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	webhooks []config.Webhook
-	logFile  *os.File
 	wg       sync.WaitGroup
 }
 
@@ -32,31 +30,21 @@ func NewAsteriskManager(parentCtx context.Context, server config.AMIServer) (*As
 	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
 	log.Printf("[%s] Conectando ao AMI em %s", server.ID, address)
 
-	logFileName := fmt.Sprintf("ami_stream_%s.log", server.ID)
-	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	socket, err := NewLoggedSocket(ctx, address, server.ID)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("erro ao criar arquivo de log: %w", err)
-	}
-
-	socket, err := NewLoggedSocket(ctx, address, logFile, server.ID)
-	if err != nil {
-		cancel()
-		logFile.Close()
 		return nil, fmt.Errorf("erro ao criar socket: %w", err)
 	}
 
 	connected, err := goami.Connect(ctx, socket)
 	if err != nil || !connected {
 		cancel()
-		logFile.Close()
 		return nil, fmt.Errorf("erro ao conectar: %w", err)
 	}
 
 	uuid, err := goami.GetUUID()
 	if err != nil {
 		cancel()
-		logFile.Close()
 		return nil, fmt.Errorf("erro ao gerar UUID: %w", err)
 	}
 
@@ -71,16 +59,12 @@ func NewAsteriskManager(parentCtx context.Context, server config.AMIServer) (*As
 		ctx:      ctx,
 		cancel:   cancel,
 		webhooks: server.Webhooks,
-		logFile:  logFile,
 	}
-
-	log.Printf("[%s] Log de saatream será salvo em: %s", server.ID, logFileName)
 
 	err = goami.Login(ctx, socket, server.Username, server.Password, "on", uuid)
 	// err = login(ctx, socket, server.Username, server.Password, "on", uuid)
 	if err != nil {
 		cancel()
-		logFile.Close()
 		return nil, fmt.Errorf("erro no login: %w", err)
 	}
 	log.Printf("[%s] Logged in successfully", server.ID)
@@ -137,7 +121,7 @@ func (m *AsteriskManager) eventLoop(eventChan chan<- Event) {
 func (m *AsteriskManager) reconnect() error {
 	address := fmt.Sprintf("%s:%d", m.Host, m.Port)
 
-	newSocket, err := NewLoggedSocket(m.ctx, address, m.logFile, m.ID)
+	newSocket, err := NewLoggedSocket(m.ctx, address, m.ID)
 	if err != nil {
 		return fmt.Errorf("erro ao criar novo socket: %w", err)
 	}
@@ -178,11 +162,6 @@ func (m *AsteriskManager) Close() error {
 
 	if err := goami.Logoff(m.ctx, m.socket, m.uuid); err != nil {
 		log.Printf("[%s] Erro no logoff: %v", m.ID, err)
-	}
-
-	if m.logFile != nil {
-		m.logFile.Close()
-		log.Printf("[%s] Arquivo de log fechado", m.ID)
 	}
 
 	return m.socket.Close(m.ctx)

@@ -2,42 +2,30 @@ package ami
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
-	"time"
 
 	goami "github.com/heltonmarx/goami/ami"
 )
 
 type LoggedSocket struct {
 	*goami.Socket
-	logFile *os.File
-	id      string
+	id string
 }
 
-func NewLoggedSocket(ctx context.Context, address string, logFile *os.File, id string) (*LoggedSocket, error) {
+func NewLoggedSocket(ctx context.Context, address string, id string) (*LoggedSocket, error) {
 	socket, err := goami.NewSocket(ctx, address)
 	if err != nil {
 		return nil, err
 	}
 
 	return &LoggedSocket{
-		Socket:  socket,
-		logFile: logFile,
-		id:      id,
+		Socket: socket,
+		id:     id,
 	}, nil
 }
 
 func (ls *LoggedSocket) Send(message string) error {
 	log.Printf("[%s] Enviando mensagem: %s", ls.id, message)
-	if ls.logFile != nil {
-		timestamp := time.Now().Format("2006-01-02 15:04:05.000")
-		fmt.Fprintf(ls.logFile, "\n<<< SEND [%s]\n", timestamp)
-		fmt.Fprintf(ls.logFile, "%s", message)
-		ls.logFile.Sync()
-	}
-
 	return ls.Socket.Send(message)
 }
 

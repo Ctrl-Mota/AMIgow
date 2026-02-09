@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	log.SetOutput(os.Stdout)
 	log.Println("=== AMIgow - Iniciando ===")
 
 	ctx, cancel := context.WithCancel(context.Background())
