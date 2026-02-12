@@ -1,4 +1,7 @@
 {
+  "api_key": "your-secret-key",
+  "base_path": "/amigow",
+  "server_host": "https://[host]",
   "ami_servers": [
     {
       "id": "teste-1",
@@ -8,7 +11,7 @@
       "password": "TNwVn82RCNMXgA",
       "webhooks": [
         {
-          "url": "https://frankly-relaxing-hornet.ngrok-free.app/api/ami-webhook",
+          "url": "https://[your-host]/api/ami-webhook",
           "timeout_seconds": 10,
           "events_filter": ["answer", "hangup", "missed", "invite"]
         }

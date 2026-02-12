@@ -1,89 +1,61 @@
 package api
 
 import (
-	"encoding/json"
-	"io"
+	"context"
+	"fmt"
 	"log"
-	"net/http"
 
 	"github.com/safehouse/amigow/internal/ami"
+	"github.com/safehouse/amigow/internal/config"
 )
 
 type Handler struct {
 	Managers map[string]*ami.AsteriskManager
+	Config   *config.Config
 }
 
-func NewHandler(managers map[string]*ami.AsteriskManager) *Handler {
+func NewHandler(managers map[string]*ami.AsteriskManager, cfg *config.Config) *Handler {
 	return &Handler{
 		Managers: managers,
+		Config:   cfg,
 	}
 }
 
-func (h *Handler) HandleAction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
-		return
+type ActionInput struct {
+	Body       ActionRequest
+	AsteriskID string `header:"X-Asterisk-ID" doc:"ID do servidor Asterisk"`
+}
+
+func (h *Handler) HandleAction(ctx context.Context, input *ActionInput) (*ActionResponse, error) {
+	if input.AsteriskID == "" {
+		return nil, errorBadRequest("Header X-Asterisk-ID é obrigatório")
 	}
 
-	asteriskID := r.Header.Get("X-Asterisk-ID")
-	if asteriskID == "" {
-		http.Error(w, "Header X-Asterisk-ID é obrigatório", http.StatusBadRequest)
-		return
-	}
-
-	manager, found := h.Managers[asteriskID]
+	manager, found := h.Managers[input.AsteriskID]
 	if !found {
-		http.Error(w, "Asterisk ID não encontrado", http.StatusNotFound)
-		return
+		return nil, errorNotFound("Asterisk ID não encontrado")
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("[API] Erro ao ler body: %v", err)
-		http.Error(w, "Erro ao ler requisição", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	var action map[string]string
-	err = json.Unmarshal(body, &action)
-	if err != nil {
-		log.Printf("[API] Erro ao decodificar JSON: %v", err)
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
-		return
+	if input.Body.Action["Action"] == "" {
+		return nil, errorBadRequest("Campo Action é obrigatório")
 	}
 
-	if action["Action"] == "" {
-		http.Error(w, "Campo Action é obrigatório", http.StatusBadRequest)
-		return
-	}
+	log.Printf("[API] Executando action %s para %s", input.Body.Action["Action"], input.AsteriskID)
 
-	log.Printf("[API] Executando action %s para %s", action["Action"], asteriskID)
-
-	response, err := manager.SendAction(action)
+	response, err := manager.SendAction(input.Body.Action)
 	if err != nil {
 		log.Printf("[API] Erro ao executar action: %v", err)
-
-		errorResponse := map[string]string{
-			"error": err.Error(),
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(errorResponse)
-		return
+		return nil, errorInternal(fmt.Sprintf("Erro ao executar ação: %v", err))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	result := &ActionResponse{}
+	result.Body.Response = response
+	return result, nil
 }
 
-func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
-	status := map[string]interface{}{
-		"status":   "ok",
-		"managers": len(h.Managers),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+func (h *Handler) HandleHealth(ctx context.Context, input *struct{}) (*HealthResponse, error) {
+	result := &HealthResponse{}
+	result.Body.Status = "ok"
+	result.Body.Managers = len(h.Managers)
+	return result, nil
 }
