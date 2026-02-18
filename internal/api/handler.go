@@ -59,3 +59,26 @@ func (h *Handler) HandleHealth(ctx context.Context, input *struct{}) (*HealthRes
 	result.Body.Managers = len(h.Managers)
 	return result, nil
 }
+
+func (h *Handler) HandleWebhookSchema(ctx context.Context, input *struct{}) (*WebhookSchemaResponse, error) {
+	result := &WebhookSchemaResponse{}
+	result.Body.Description = "O AMIgow envia webhooks para URLs configuradas quando eventos AMI ocorrem"
+	result.Body.Payload = WebhookCallbackPayload{
+		EventType:   "answer",
+		Source:      "teste-1",
+		Timestamp:   "2026-02-10T17:00:00Z",
+		Channel:     "SIP/1001-0000001",
+		CallerID:    "1001",
+		CallerName:  "João Silva",
+		Destination: "2000",
+		Cause:       "16",
+		CauseText:   "Normal clearing",
+		Duration:    "45",
+		RawData:     map[string]string{"Event": "Newchannel", "Channel": "SIP/1001-0000001"},
+	}
+	result.Body.Headers = map[string]string{
+		"Content-Type":  "application/json",
+		"X-Asterisk-ID": "teste-1", // ID do servidor Asterisk que enviou o evento
+	}
+	return result, nil
+}

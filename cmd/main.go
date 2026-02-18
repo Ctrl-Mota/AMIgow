@@ -71,7 +71,7 @@ func main() {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
 
-			publicPaths := []string{"/docs", "/openapi", "/openapi.json", "/openapi.yaml", "/$openapi", "/health"}
+			publicPaths := []string{"/docs", "/openapi", "/openapi.json", "/openapi.yaml", "/$openapi", "/health", "/webhooks/schema"}
 
 			for _, pubPath := range publicPaths {
 				if strings.HasPrefix(path, pubPath) || path == pubPath {
@@ -172,6 +172,15 @@ func main() {
 		Summary:     "Verifica saúde do serviço",
 		Tags:        []string{"Health"},
 	}, handler.HandleHealth)
+
+	huma.Register(humaAPI, huma.Operation{
+		OperationID: "post-webhook",
+		Method:      http.MethodPost,
+		Path:        "/amigow/webhook",
+		Summary:     "Envia evento de webhook",
+		Description: "Um evento que o AMIgow envia para o endpoint configurado",
+		Tags:        []string{"Webhooks"},
+	}, handler.HandleWebhookSchema)
 
 	serverAddr := ":8080"
 	log.Printf("Servidor HTTP iniciado em %s", serverAddr)
