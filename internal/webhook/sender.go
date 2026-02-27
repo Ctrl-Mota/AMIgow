@@ -89,9 +89,9 @@ func sendWebhook(event ami.Event, webhook config.Webhook) {
 	success := attemptSend(client, webhook.URL, jsonPayload, event.Source, event.Type)
 
 	if !success {
-		log.Printf("[WEBHOOK] Tentando retry para %s", webhook.URL)
-		time.Sleep(1 * time.Second)
-		attemptSend(client, webhook.URL, jsonPayload, event.Source, event.Type)
+		// log.Printf("[WEBHOOK] Tentando retry para %s", webhook.URL)
+		// time.Sleep(1 * time.Second)
+		// attemptSend(client, webhook.URL, jsonPayload, event.Source, event.Type)
 	}
 }
 
@@ -117,14 +117,14 @@ func attemptSend(client *http.Client, url string, payload []byte, source string,
 		log.Printf("[%s] Erro ao criar request: %v", source, err)
 		return false
 	}
-	log.Printf("[%s] Enviando webhook: \n\n%s", source, string(payload))
+	//log.Printf("[%s] Enviando webhook: \n\n%s", source, string(payload))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Event-Type", eventType)
 	req.Header.Set("X-Source", source)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[%s] Webhook %s falhou para %s: %v", source, eventType, url, err)
+		//log.Printf("[%s] Webhook %s falhou para %s: %v", source, eventType, url, err)
 		return false
 	}
 	defer resp.Body.Close()

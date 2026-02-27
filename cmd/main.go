@@ -166,6 +166,17 @@ func main() {
 	}, handler.HandleQueueRemove)
 
 	huma.Register(humaAPI, huma.Operation{
+		OperationID: "get-queue-status",
+		Method:      http.MethodPost,
+		Path:        "/queue/status",
+		Summary:     "Obtém status da fila",
+		Tags:        []string{"Queue"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandleQueueStatus)
+
+	huma.Register(humaAPI, huma.Operation{
 		OperationID: "get-health",
 		Method:      http.MethodGet,
 		Path:        "/health",

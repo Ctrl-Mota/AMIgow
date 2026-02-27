@@ -80,3 +80,33 @@ func (h *Handler) HandleQueueRemove(ctx context.Context, input *QueueInput) (*Qu
 	result.Body.Message = response.Get("Message")
 	return result, nil
 }
+
+func (h *Handler) HandleQueueStatus(ctx context.Context, input *QueueInput) (*QueueResponse, error) {
+	if input.AsteriskID == "" {
+		return nil, errorBadRequest("Header X-Asterisk-ID é obrigatório")
+	}
+
+	manager, found := h.Managers[input.AsteriskID]
+	if !found {
+		return nil, errorNotFound("Asterisk ID não encontrado")
+	}
+
+	if input.Body.Queue == "" || input.Body.Interface == "" {
+		return nil, errorBadRequest("Campos queue e interface são obrigatórios")
+	}
+
+	log.Printf("[API] Obtendo status da interface %s da fila %s", input.Body.Interface, input.Body.Queue)
+
+	bgCtx := context.Background()
+	response, err := ami.SendQueueStatus(bgCtx, manager, input.Body.Queue, input.Body.Interface)
+	if err != nil {
+		log.Printf("[API] Erro ao obter status da fila: %v", err)
+		return nil, errorBadRequest(fmt.Sprintf("Erro ao obter status da fila: %v", err))
+	}
+
+	result := &QueueResponse{}
+	result.Body.Response = "Success"
+	result.Body.Message = response.Get("Event")
+
+	return result, nil
+}

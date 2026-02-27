@@ -20,6 +20,7 @@ func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
 	if eventType == "" {
 		return nil, false
 	}
+	// log.Printf("[AMI] Evento: %s - %v", eventType, amiEvent)
 
 	if isAnswerEvent(amiEvent) {
 		return buildEvent("answer", sourceID, amiEvent), true
@@ -35,6 +36,34 @@ func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
 
 	if isNewChannelEvent(amiEvent) {
 		return buildEvent("invite", sourceID, amiEvent), true
+	}
+
+	if isQueueCallerJoinEvent(amiEvent) {
+		return buildEvent("queue_join", sourceID, amiEvent), true
+	}
+
+	if isQueueCallerLeaveEvent(amiEvent) {
+		return buildEvent("queue_leave", sourceID, amiEvent), true
+	}
+
+	if isQueueCallerAbandonEvent(amiEvent) {
+		return buildEvent("queue_abandon", sourceID, amiEvent), true
+	}
+	if isQueueParamsEvent(amiEvent) {
+		return buildEvent("queue_params", sourceID, amiEvent), true
+	}
+
+	if isAgentCalledEvent(amiEvent) {
+		return buildEvent("agent_called", sourceID, amiEvent), true
+	}
+	if isAgentCompleteEvent(amiEvent) {
+		return buildEvent("agent_complete", sourceID, amiEvent), true
+	}
+	if isAgentConnectEvent(amiEvent) {
+		return buildEvent("agent_connect", sourceID, amiEvent), true
+	}
+	if isAgentDumpEvent(amiEvent) {
+		return buildEvent("agent_dump", sourceID, amiEvent), true
 	}
 
 	return nil, false
@@ -58,6 +87,10 @@ func isAnswerEvent(amiEvent goami.Response) bool {
 	}
 
 	return false
+}
+
+func isQueueParamsEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueParams"
 }
 
 func isHangupEvent(amiEvent goami.Response) bool {
@@ -84,6 +117,34 @@ func isMissedCallEvent(amiEvent goami.Response) bool {
 	return false
 }
 
+func isQueueCallerJoinEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueCallerJoin"
+}
+
+func isQueueCallerLeaveEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueCallerLeave"
+}
+
+func isQueueCallerAbandonEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueCallerAbandon"
+}
+
+func isAgentCalledEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "AgentCalled"
+}
+
+func isAgentCompleteEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "AgentComplete"
+}
+
+func isAgentConnectEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "AgentConnect"
+}
+
+func isAgentDumpEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "AgentDump"
+}
+
 func isNewChannelEvent(amiEvent goami.Response) bool {
 	eventType := amiEvent.Get("Event")
 	if eventType == "Newchannel" {
@@ -106,6 +167,8 @@ func buildEvent(eventType string, sourceID string, amiEvent goami.Response) *Eve
 		"DialStatus", "DestChannel", "DestChannelState", "DestChannelStateDesc",
 		"DestCallerIDNum", "DestCallerIDName", "DestUniqueid",
 		"BridgeState", "BridgeType", "Channel1", "Channel2",
+		"Queue", "Position", "Count", "Linkedid", "Language", "AccountCode", "Strategy",
+		"Interface", "MemberName", "HoldTime",
 	}
 
 	for _, key := range allKeys {
@@ -122,8 +185,8 @@ func buildEvent(eventType string, sourceID string, amiEvent goami.Response) *Eve
 		Data:      data,
 	}
 
-	log.Printf("[%s] Evento %s processado: Channel=%s, CallerID=%s",
-		sourceID, eventType, data["Channel"], data["CallerIDNum"])
+	log.Printf("[%s] Evento %s processado: %s",
+		sourceID, eventType, data)
 
 	return event
 }

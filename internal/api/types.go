@@ -21,6 +21,25 @@ type QueueResponse struct {
 		Message  string `json:"Message" doc:"Mensagem de retorno" example:"Added interface to queue"`
 	}
 }
+type QueueResponseStatus struct {
+	Body struct {
+		Response                   string                     `json:"Response" doc:"Status da resposta" example:"Success"`
+		Message                    string                     `json:"Message" doc:"Mensagem de retorno" example:"Added interface to queue"`
+		QueueResponseStatusPayload QueueResponseStatusPayload `json:"payload" doc:"Payload do evento"`
+	}
+}
+
+type QueueResponseStatusPayload struct {
+	Max               string `json:"Max" doc:"Máximo de agentes na fila" example:"10"`
+	Strategy          string `json:"Strategy" doc:"Estratégia de atendimento" example:"roundrobin"`
+	Calls             string `json:"Calls" doc:"Total de chamadas na fila" example:"10"`
+	Holdtime          string `json:"Holdtime" doc:"Tempo de espera na fila" example:"10"`
+	TalkTime          string `json:"TalkTime" doc:"Tempo de fala na fila" example:"10"`
+	Completed         string `json:"Completed" doc:"Total de chamadas concluídas" example:"10"`
+	Abandoned         string `json:"Abandoned" doc:"Total de chamadas abandonadas" example:"10"`
+	ServiceLevelPerf  string `json:"ServiceLevelPerf" doc:"Performance de atendimento" example:"10"`
+	ServiceLevelPerf2 string `json:"ServiceLevelPerf2" doc:"Performance de atendimento 2" example:"10"`
+}
 
 type HealthResponse struct {
 	Body struct {
