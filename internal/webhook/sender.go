@@ -46,13 +46,9 @@ func ProcessEvents(eventChan <-chan ami.Event, cfg *config.Config) {
 }
 
 func buildWebhookMap(cfg *config.Config) map[string][]config.Webhook {
-	webhookMap := make(map[string][]config.Webhook)
-
-	for _, server := range cfg.AMIServers {
-		webhookMap[server.ID] = server.Webhooks
+	return map[string][]config.Webhook{
+		cfg.ID: cfg.AMIServer.Webhooks,
 	}
-
-	return webhookMap
 }
 
 func shouldSendEvent(eventType string, filter []string) bool {
@@ -117,7 +113,7 @@ func attemptSend(client *http.Client, url string, payload []byte, source string,
 		log.Printf("[%s] Erro ao criar request: %v", source, err)
 		return false
 	}
-	//log.Printf("[%s] Enviando webhook: \n\n%s", source, string(payload))
+	log.Printf("Enviando evento do tipo %s", eventType)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Event-Type", eventType)
 	req.Header.Set("X-Source", source)

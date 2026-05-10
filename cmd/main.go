@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/safehouse/amigow/internal/ami"
 	"github.com/safehouse/amigow/internal/api"
+	"github.com/safehouse/amigow/internal/cdr"
 	"github.com/safehouse/amigow/internal/config"
 	"github.com/safehouse/amigow/internal/webhook"
 )
@@ -35,30 +36,28 @@ func main() {
 		log.Fatalf("Erro ao carregar configuração: %v", err)
 	}
 
-	log.Printf("Configuração carregada: %d servidores AMI", len(cfg.AMIServers))
+	log.Printf("Configuração carregada: servidor AMI %s", cfg.ID)
 
 	eventChan := make(chan ami.Event, 1000)
 
 	managers := make(map[string]*ami.AsteriskManager)
 
-	for _, server := range cfg.AMIServers {
-		manager, err := ami.NewAsteriskManager(ctx, server)
-		if err != nil {
-			log.Printf("AVISO: Falha ao conectar em %s: %v", server.ID, err)
-			continue
-		}
-
-		managers[server.ID] = manager
-		manager.Start(eventChan)
+	manager, err := ami.NewAsteriskManager(ctx, cfg.ID, cfg.AMIServer)
+	if err != nil {
+		log.Fatalf("Falha ao conectar AMI %s: %v", cfg.ID, err)
 	}
-
-	if len(managers) == 0 {
-		log.Fatal("Nenhuma conexão AMI estabelecida. Encerrando.")
-	}
+	managers[cfg.ID] = manager
+	manager.Start(eventChan)
 
 	go webhook.ProcessEvents(eventChan, cfg)
 
-	handler := api.NewHandler(managers, cfg)
+	cdrDB, err := cdr.Open(cfg.CDRDB)
+	if err != nil {
+		log.Printf("AVISO: CDR database não disponível: %v", err)
+		cdrDB = nil
+	}
+
+	handler := api.NewHandler(managers, cfg, cdrDB)
 
 	router := chi.NewRouter()
 
@@ -71,7 +70,10 @@ func main() {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
 
-			publicPaths := []string{"/docs", "/openapi", "/openapi.json", "/openapi.yaml", "/$openapi", "/health", "/webhooks/schema"}
+			publicPaths := []string{
+				"/docs", "/openapi", "/openapi.json", "/openapi.yaml", "/$openapi", "/health", "/webhooks/schema",
+				// "/dynamic-resolver", "/open-gate", "/cdr/search",
+			}
 
 			for _, pubPath := range publicPaths {
 				if strings.HasPrefix(path, pubPath) || path == pubPath {
@@ -147,8 +149,8 @@ func main() {
 		OperationID: "post-queue-add",
 		Method:      http.MethodPost,
 		Path:        "/queue/add",
-		Summary:     "Adiciona interface à fila",
-		Tags:        []string{"Queue"},
+		Summary:     "Queue · Adiciona interface à fila",
+		Tags:        []string{"AMI"},
 		Security: []map[string][]string{
 			{"apiKey": {}},
 		},
@@ -158,8 +160,8 @@ func main() {
 		OperationID: "post-queue-remove",
 		Method:      http.MethodPost,
 		Path:        "/queue/remove",
-		Summary:     "Remove interface da fila",
-		Tags:        []string{"Queue"},
+		Summary:     "Queue · Remove interface da fila",
+		Tags:        []string{"AMI"},
 		Security: []map[string][]string{
 			{"apiKey": {}},
 		},
@@ -169,8 +171,8 @@ func main() {
 		OperationID: "get-queue-status",
 		Method:      http.MethodPost,
 		Path:        "/queue/status",
-		Summary:     "Obtém status da fila",
-		Tags:        []string{"Queue"},
+		Summary:     "Queue · Obtém status da fila",
+		Tags:        []string{"AMI"},
 		Security: []map[string][]string{
 			{"apiKey": {}},
 		},
@@ -181,7 +183,7 @@ func main() {
 		Method:      http.MethodGet,
 		Path:        "/health",
 		Summary:     "Verifica saúde do serviço",
-		Tags:        []string{"Health"},
+		Tags:        []string{"Healthcheck"},
 	}, handler.HandleHealth)
 
 	huma.Register(humaAPI, huma.Operation{
@@ -192,6 +194,54 @@ func main() {
 		Description: "Um evento que o AMIgow envia para o endpoint configurado",
 		Tags:        []string{"Webhooks"},
 	}, handler.HandleWebhookSchema)
+
+	huma.Register(humaAPI, huma.Operation{
+		OperationID: "get-channel-redirect",
+		Method:      http.MethodPost,
+		Path:        "/channel/redirect",
+		Summary:     "Channel · Redireciona (transfere) um canal",
+		Description: "Executa o comando AMI Redirect para transferir um canal ativo para outro ramal/contexto",
+		Tags:        []string{"AMI"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandleChannelRedirect)
+
+	huma.Register(humaAPI, huma.Operation{
+		OperationID: "get-dynamic-resolver",
+		Method:      http.MethodGet,
+		Path:        "/dynamic-resolver",
+		Summary:     "Resolve contatos de um ramal PBX",
+		Description: "Chamado pelo dialplan do Asterisk para obter a lista de contatos de um quicknumber. Sem autenticação (uso interno).",
+		Tags:        []string{"Asterisk Egress · Portaria Autônoma"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandleDynamicResolver)
+
+	huma.Register(humaAPI, huma.Operation{
+		OperationID: "get-open-gate",
+		Method:      http.MethodGet,
+		Path:        "/open-gate",
+		Summary:     "Abre cancela/portão",
+		Description: "Chamado pelo dialplan do Asterisk para acionar a abertura de uma cancela. Sem autenticação (uso interno).",
+		Tags:        []string{"Asterisk Egress · Portaria Autônoma"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandleOpenGate)
+
+	huma.Register(humaAPI, huma.Operation{
+		OperationID: "get-cdr-search",
+		Method:      http.MethodGet,
+		Path:        "/cdr/search",
+		Summary:     "Busca CDR por linkedid",
+		Description: "Retorna todos os registros de CDR do Asterisk para um dado linkedid",
+		Tags:        []string{"Reports"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandleCDRSearch)
 
 	serverAddr := ":8080"
 	log.Printf("Servidor HTTP iniciado em %s", serverAddr)

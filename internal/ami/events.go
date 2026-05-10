@@ -1,7 +1,6 @@
 package ami
 
 import (
-	"log"
 	"time"
 
 	goami "github.com/heltonmarx/goami/ami"
@@ -185,8 +184,8 @@ func buildEvent(eventType string, sourceID string, amiEvent goami.Response) *Eve
 		Data:      data,
 	}
 
-	log.Printf("[%s] Evento %s processado: %s",
-		sourceID, eventType, data)
+	// log.Printf("[%s] Evento %s processado: %s",
+	// 	sourceID, eventType, data)
 
 	return event
 }

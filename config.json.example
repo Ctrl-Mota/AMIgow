@@ -19,7 +19,23 @@
     }
   ],
   "config_api_url": "http://localhost:9000/config",
-  "config_refresh_minutes": 5
+  "config_refresh_minutes": 5,
+
+  "api_connect": {
+    "host": "https://[your-host]",
+    "path_resolver": "/asterisk-egress/dynamic-resolver",
+    "path_open_gate": "/asterisk-egress/open-gate",
+    "timeout_seconds": 10
+  },
+
+  "cdr_db": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "username": "asterisk",
+    "password": "",
+    "database": "asterisk",
+    "table": "cdr"
+  }
 }
 
 

@@ -24,13 +24,13 @@ type AsteriskManager struct {
 	wg       sync.WaitGroup
 }
 
-func NewAsteriskManager(parentCtx context.Context, server config.AMIServer) (*AsteriskManager, error) {
+func NewAsteriskManager(parentCtx context.Context, id string, server config.AMIServer) (*AsteriskManager, error) {
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	address := fmt.Sprintf("%s:%d", server.Host, server.Port)
-	log.Printf("[%s] Conectando ao AMI em %s", server.ID, address)
+	log.Printf("[%s] Conectando ao AMI em %s", id, address)
 
-	socket, err := NewLoggedSocket(ctx, address, server.ID)
+	socket, err := NewLoggedSocket(ctx, address, id)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("erro ao criar socket: %w", err)
@@ -49,7 +49,7 @@ func NewAsteriskManager(parentCtx context.Context, server config.AMIServer) (*As
 	}
 
 	mgr := &AsteriskManager{
-		ID:       server.ID,
+		ID:       id,
 		Host:     server.Host,
 		Port:     server.Port,
 		Username: server.Username,
@@ -62,12 +62,11 @@ func NewAsteriskManager(parentCtx context.Context, server config.AMIServer) (*As
 	}
 
 	err = goami.Login(ctx, socket, server.Username, server.Password, "on", uuid)
-	// err = login(ctx, socket, server.Username, server.Password, "on", uuid)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("erro no login: %w", err)
 	}
-	log.Printf("[%s] Logged in successfully", server.ID)
+	log.Printf("[%s] Logged in successfully", id)
 
 	return mgr, nil
 }

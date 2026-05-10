@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 
@@ -12,12 +13,14 @@ import (
 type Handler struct {
 	Managers map[string]*ami.AsteriskManager
 	Config   *config.Config
+	CDRDB    *sql.DB
 }
 
-func NewHandler(managers map[string]*ami.AsteriskManager, cfg *config.Config) *Handler {
+func NewHandler(managers map[string]*ami.AsteriskManager, cfg *config.Config, cdrDB *sql.DB) *Handler {
 	return &Handler{
 		Managers: managers,
 		Config:   cfg,
+		CDRDB:    cdrDB,
 	}
 }
 

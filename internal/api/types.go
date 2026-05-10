@@ -41,6 +41,20 @@ type QueueResponseStatusPayload struct {
 	ServiceLevelPerf2 string `json:"ServiceLevelPerf2" doc:"Performance de atendimento 2" example:"10"`
 }
 
+type ChannelRedirectRequest struct {
+	Channel  string `json:"channel"  doc:"Canal a ser redirecionado" example:"PJSIP/8001-00000001"`
+	Exten    string `json:"exten"    doc:"Ramal de destino" example:"2000"`
+	Context  string `json:"context"  doc:"Contexto do dialplan" example:"from-internal"`
+	Priority string `json:"priority" doc:"Prioridade no dialplan" example:"1"`
+}
+
+type ChannelRedirectResponse struct {
+	Body struct {
+		Response string `json:"Response" doc:"Status da resposta" example:"Success"`
+		Message  string `json:"Message"  doc:"Mensagem de retorno" example:"Redirect successful"`
+	}
+}
+
 type HealthResponse struct {
 	Body struct {
 		Status   string `json:"status" doc:"Status do serviço" example:"ok"`
@@ -79,4 +93,47 @@ type WebhookBehavior struct {
 	Timeout     string `json:"timeout" doc:"Timeout configurável por webhook" example:"10s"`
 	Retry       string `json:"retry" doc:"Estratégia de retry" example:"1 tentativa após 1 segundo"`
 	FilterLogic string `json:"filter_logic" doc:"Como funciona o filtro de eventos" example:"Apenas eventos listados em events_filter são enviados"`
+}
+
+type DynamicResolverInput struct {
+	QuickNumber string `query:"quicknumber" doc:"Número rápido do ramal PBX" example:"1001"`
+	Caller      string `query:"caller"      doc:"Número do originador da chamada" example:"2000"`
+	Linkedid    string `query:"linkedid"    doc:"Linked ID único da chamada" example:"1737456600.123"`
+}
+
+type OpenGateInput struct {
+	DeviceID string `query:"device_id" doc:"ID do dispositivo da cancela/portão" example:"1"`
+	Linkedid string `query:"linkedid"  doc:"Linked ID único da chamada" example:"1737456600.123"`
+}
+
+type ResolverConfig struct {
+	CondominioID     int    `json:"condominioId" doc:"Identificador do condomínio" example:"1"`
+	OpenGateDigit    string `json:"openGateDigit" doc:"Dígito DTMF para abertura de cancela" example:"9"`
+	OpenGateDeviceID *int   `json:"openGateDeviceId" doc:"ID do dispositivo da cancela/portão" example:"1"`
+}
+
+type ResolverContact struct {
+	ID        int    `json:"id" doc:"Identificador do contato" example:"1"`
+	Dial      string `json:"dial,omitempty" doc:"Número para discagem (cellphone, portaria)" example:"21995451302"`
+	MoradorID string `json:"moradorId,omitempty" doc:"Identificador do morador quando type é app" example:"1"`
+	Name      string `json:"name" doc:"Nome exibido" example:"João da Silva"`
+	Type      string `json:"type" doc:"Tipo: cellphone, portaria ou app" example:"cellphone"`
+	Repeat    int    `json:"repeat" doc:"Quantidade de tentativas de discagem" example:"2"`
+}
+
+type ResolverResponse struct {
+	Body struct {
+		Config   ResolverConfig    `json:"config" doc:"Configuração retornada para o ramal"`
+		Contacts []ResolverContact `json:"contacts" doc:"Lista de contatos para discagem sequencial"`
+	}
+}
+
+type CDRSearchInput struct {
+	Linkedid string `query:"linkedid" doc:"Linked ID único da chamada" example:"1737456600.123"`
+}
+
+type CDRSearchResponse struct {
+	Body struct {
+		Rows []map[string]any `json:"rows" doc:"Linhas do CDR encontradas"`
+	}
 }

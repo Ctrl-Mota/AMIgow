@@ -440,3 +440,26 @@ location /amigow/ {
 ## License
 
 MIT License
+
+
+## Setup
+
+### copiar config do db para o config.json
+ssh -t safehouse_freepbx_hx "sudo cat /etc/freepbx.conf"
+
+### criar user AMI
+
+### enviar .sh de setup
+scp ./setup-amigow.sh safehouse_freepbx_hx:amigow/setup-amigow.sh
+scp ./amigow safehouse_freepbx_hx:amigow/amigow
+scp ./config.json safehouse_freepbx_hx:amigow/config.json
+ 
+
+### updates
+scp ./amigow safehouse_freepbx_hx:amigow/amigow
+
+ssh safehouse_vital2
+sudo systemctl stop amigow
+sudo cp ./amigow/amigow /opt/amigow/amigow
+sudo systemctl start amigow
+sudo journalctl -u amigow -f

@@ -68,29 +68,17 @@ sudo nano /etc/nginx/sites-available/vitalpbx
 dentro de server 80 e 443, adicione:
 
 location /amigow/ {
-        # MUDE AQUI: volte para / no final (remove /amigow)
-        proxy_pass http://127.0.0.1:8080/;
+    proxy_pass http://127.0.0.1:8080/;
 
-        # Headers obrigatórios
-        proxy_set_header Host \"\$host\";
-        proxy_set_header X-Real-IP \"\$remote_addr\";
-        proxy_set_header X-Forwarded-For \"\$proxy_add_x_forwarded_for\";
-        proxy_set_header X-Forwarded-Proto \"\$scheme\";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Evita problemas com streaming / long polling
-        proxy_http_version 1.1;
-        proxy_set_header Connection \"\";
+    # 1) Remove CSP que venha do serviço em 8080 (senão fica duplicado e bloqueia)
+    proxy_hide_header Content-Security-Policy;
+    proxy_hide_header Content-Security-Policy-Report-Only;
 
-        # Timeouts (importante pra AMI/webhook)
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-
-        # 1) Remove CSP que venha do serviço em 8080
-        proxy_hide_header Content-Security-Policy;
-        proxy_hide_header Content-Security-Policy-Report-Only;
-
-        # 2) Define um CSP único
-        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';\" always\;
-}
+    # 2) Define um CSP único (TUDO EM UMA LINHA)
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob:; font-src 'self' https://unpkg.com data:; connect-src 'self';" always;
 "
