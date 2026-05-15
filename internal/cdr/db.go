@@ -11,7 +11,8 @@ import (
 	"github.com/safehouse/amigow/internal/config"
 )
 
-func Open(cfg config.CDRDatabase) (*sql.DB, error) {
+func Open() (*sql.DB, error) {
+	cfg := config.Current.CDRDB
 	if cfg.Host == "" {
 		return nil, fmt.Errorf("cdr_db.host não configurado")
 	}

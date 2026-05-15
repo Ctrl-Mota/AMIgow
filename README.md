@@ -458,8 +458,73 @@ scp ./config.json safehouse_freepbx_hx:amigow/config.json
 ### updates
 scp ./amigow safehouse_freepbx_hx:amigow/amigow
 
-ssh safehouse_vital2
+ssh safehouse_freepbx_hx
 sudo systemctl stop amigow
 sudo cp ./amigow/amigow /opt/amigow/amigow
 sudo systemctl start amigow
 sudo journalctl -u amigow -f
+
+az account set --subscription 7388d489-5e8e-4f85-9967-93b1e14f951b
+az vm run-command invoke \
+  -g monolito-production_group \
+  -n freepbx-hx \
+  --command-id RunShellScript \
+  --scripts '
+sudo fwconsole firewall trust 177.107.232.238/32 || true
+sudo fwconsole firewall restart || true'
+
+az vm run-command invoke \
+  -g monolito-production_group \
+  -n freepbx-hx \
+  --command-id RunShellScript \
+  --scripts '/home/azureuser/tip.sh 177.107.232.238'
+
+az vm run-command invoke \
+  -g monolito-production_group \
+  -n freepbx-hx \
+  --command-id RunShellScript \
+  --scripts 'sudo fwconsole firewall f2b2'
+
+
+  az vm run-command invoke \
+  -g monolito-production_group \
+  -n freepbx-hx \
+  --command-id RunShellScript \
+  --scripts '
+IP="177.107.232.238"
+
+sudo fwconsole firewall trust "$IP/32"
+sudo fwconsole firewall sync
+
+for jail in $(sudo fail2ban-client status | sed -n "s/.*Jail list:\s*//p" | tr "," " "); do
+  echo "Unban $IP from $jail"
+  sudo fail2ban-client set "$jail" unbanip "$IP" || true
+done
+
+sudo fwconsole firewall del blacklist "$IP/32" || true
+sudo fwconsole firewall restart
+sudo fwconsole firewall f2bs
+'
+
+az vm run-command invoke \
+  -g monolito-production_group \
+  -n freepbx-hx \
+  --command-id RunShellScript \
+  --scripts '
+IP="45.176.64.186"
+
+
+for jail in $(sudo fail2ban-client status | sed -n "s/.*Jail list:\s*//p" | tr "," " "); do
+  echo "Unban $IP from $jail"
+  sudo fail2ban-client set "$jail" unbanip "$IP" || true
+done
+
+sudo fwconsole firewall del blacklist "$IP/32" || true
+sudo fwconsole firewall restart
+sudo fwconsole firewall f2bs
+'
+
+for jail in $(sudo fail2ban-client status | sed -n "s/.*Jail list:\s*//p" | tr "," " "); do
+  echo "Unban $IP from $jail"
+  sudo fail2ban-client get "$jail" status "$IP" || true
+done

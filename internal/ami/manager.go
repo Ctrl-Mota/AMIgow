@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	goami "github.com/heltonmarx/goami/ami"
 	"github.com/safehouse/amigow/internal/config"
@@ -97,15 +98,15 @@ func (m *AsteriskManager) eventLoop(eventChan chan<- Event) {
 		default:
 			amiEvent, err := goami.Events(m.ctx, m.socket)
 			if err != nil {
-				//log.Printf("[%s] Erro ao ler evento: %v", m.ID, err)
+				log.Printf("[%s] Erro ao ler evento: %v", m.ID, err)
 
-				// log.Printf("[%s] Tentando reconectar...", m.ID)
-				// time.Sleep(2 * time.Second)
+				log.Printf("[%s] Tentando reconectar...", m.ID)
+				time.Sleep(2 * time.Second)
 
-				// if reconnectErr := m.reconnect(); reconnectErr != nil {
-				// 	log.Printf("[%s] Falha na reconexão: %v", m.ID, reconnectErr)
-				// 	return
-				// }
+				if reconnectErr := m.reconnect(); reconnectErr != nil {
+					log.Printf("[%s] Falha na reconexão: %v", m.ID, reconnectErr)
+					return
+				}
 				continue
 			}
 

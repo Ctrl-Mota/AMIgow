@@ -11,41 +11,30 @@ import (
 )
 
 type Handler struct {
-	Managers map[string]*ami.AsteriskManager
-	Config   *config.Config
-	CDRDB    *sql.DB
+	Manager *ami.AsteriskManager
+	Config  *config.Config
+	CDRDB   *sql.DB
 }
 
-func NewHandler(managers map[string]*ami.AsteriskManager, cfg *config.Config, cdrDB *sql.DB) *Handler {
+func NewHandler(manager *ami.AsteriskManager, cdrDB *sql.DB) *Handler {
 	return &Handler{
-		Managers: managers,
-		Config:   cfg,
-		CDRDB:    cdrDB,
+		Manager: manager,
+		CDRDB:   cdrDB,
 	}
 }
 
 type ActionInput struct {
-	Body       ActionRequest
-	AsteriskID string `header:"X-Asterisk-ID" doc:"ID do servidor Asterisk"`
+	Body ActionRequest
 }
 
 func (h *Handler) HandleAction(ctx context.Context, input *ActionInput) (*ActionResponse, error) {
-	if input.AsteriskID == "" {
-		return nil, errorBadRequest("Header X-Asterisk-ID é obrigatório")
-	}
-
-	manager, found := h.Managers[input.AsteriskID]
-	if !found {
-		return nil, errorNotFound("Asterisk ID não encontrado")
-	}
-
 	if input.Body.Action["Action"] == "" {
 		return nil, errorBadRequest("Campo Action é obrigatório")
 	}
 
-	log.Printf("[API] Executando action %s para %s", input.Body.Action["Action"], input.AsteriskID)
+	log.Printf("[API] Executando action %s", input.Body.Action["Action"])
 
-	response, err := manager.SendAction(input.Body.Action)
+	response, err := h.Manager.SendAction(input.Body.Action)
 	if err != nil {
 		log.Printf("[API] Erro ao executar action: %v", err)
 		return nil, errorInternal(fmt.Sprintf("Erro ao executar ação: %v", err))
@@ -59,7 +48,6 @@ func (h *Handler) HandleAction(ctx context.Context, input *ActionInput) (*Action
 func (h *Handler) HandleHealth(ctx context.Context, input *struct{}) (*HealthResponse, error) {
 	result := &HealthResponse{}
 	result.Body.Status = "ok"
-	result.Body.Managers = len(h.Managers)
 	return result, nil
 }
 
@@ -68,7 +56,6 @@ func (h *Handler) HandleWebhookSchema(ctx context.Context, input *struct{}) (*We
 	result.Body.Description = "O AMIgow envia webhooks para URLs configuradas quando eventos AMI ocorrem"
 	result.Body.Payload = WebhookCallbackPayload{
 		EventType:   "answer",
-		Source:      "teste-1",
 		Timestamp:   "2026-02-10T17:00:00Z",
 		Channel:     "SIP/1001-0000001",
 		CallerID:    "1001",
@@ -80,8 +67,8 @@ func (h *Handler) HandleWebhookSchema(ctx context.Context, input *struct{}) (*We
 		RawData:     map[string]string{"Event": "Newchannel", "Channel": "SIP/1001-0000001"},
 	}
 	result.Body.Headers = map[string]string{
-		"Content-Type":  "application/json",
-		"X-Asterisk-ID": "teste-1", // ID do servidor Asterisk que enviou o evento
+		"Content-Type": "application/json",
+		"X-API-Key":    "api-key-1", // ID do servidor Asterisk que enviou o evento
 	}
 	return result, nil
 }

@@ -13,7 +13,7 @@ type QueueData struct {
 
 func SendQueueAdd(ctx context.Context, mgr *AsteriskManager, data QueueData) (Response, error) {
 	queueData := goami.QueueData{
-		Queue:     "Q" + data.Queue,
+		Queue:     "" + data.Queue,
 		Interface: "PJSIP/" + data.Interface,
 		Penalty:   "0",
 		Paused:    "false",
@@ -23,12 +23,12 @@ func SendQueueAdd(ctx context.Context, mgr *AsteriskManager, data QueueData) (Re
 
 func SendQueueRemove(ctx context.Context, mgr *AsteriskManager, queue string, iface string) (Response, error) {
 	queueData := goami.QueueData{
-		Queue:     "Q" + queue,
+		Queue:     "" + queue,
 		Interface: "PJSIP/" + iface,
 	}
 	return goami.QueueRemove(ctx, mgr.socket, mgr.uuid, queueData)
 }
 
 func SendQueueStatus(ctx context.Context, mgr *AsteriskManager, queue string, iface string) (Response, error) {
-	return goami.QueueStatus(ctx, mgr.socket, mgr.uuid, "Q"+queue, "PJSIP/"+iface)
+	return goami.QueueStatus(ctx, mgr.socket, mgr.uuid, ""+queue, "PJSIP/"+iface)
 }

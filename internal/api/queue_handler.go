@@ -9,20 +9,10 @@ import (
 )
 
 type QueueInput struct {
-	Body       QueueRequest
-	AsteriskID string `header:"X-Asterisk-ID" doc:"ID do servidor Asterisk"`
+	Body QueueRequest
 }
 
 func (h *Handler) HandleQueueAdd(ctx context.Context, input *QueueInput) (*QueueResponse, error) {
-	if input.AsteriskID == "" {
-		return nil, errorBadRequest("Header X-Asterisk-ID é obrigatório")
-	}
-
-	manager, found := h.Managers[input.AsteriskID]
-	if !found {
-		return nil, errorNotFound("Asterisk ID não encontrado")
-	}
-
 	if input.Body.Queue == "" || input.Body.Interface == "" {
 		return nil, errorBadRequest("Campos queue e interface são obrigatórios")
 	}
@@ -35,7 +25,7 @@ func (h *Handler) HandleQueueAdd(ctx context.Context, input *QueueInput) (*Queue
 		Interface: input.Body.Interface,
 	}
 
-	response, err := ami.SendQueueAdd(bgCtx, manager, queueData)
+	response, err := ami.SendQueueAdd(bgCtx, h.Manager, queueData)
 	if err != nil {
 		log.Printf("[API] Erro ao adicionar à fila: %v", err)
 		return nil, errorBadRequest(fmt.Sprintf("Erro ao adicionar à fila: %v", err))
@@ -51,15 +41,6 @@ func (h *Handler) HandleQueueAdd(ctx context.Context, input *QueueInput) (*Queue
 }
 
 func (h *Handler) HandleQueueRemove(ctx context.Context, input *QueueInput) (*QueueResponse, error) {
-	if input.AsteriskID == "" {
-		return nil, errorBadRequest("Header X-Asterisk-ID é obrigatório")
-	}
-
-	manager, found := h.Managers[input.AsteriskID]
-	if !found {
-		return nil, errorNotFound("Asterisk ID não encontrado")
-	}
-
 	if input.Body.Queue == "" || input.Body.Interface == "" {
 		return nil, errorBadRequest("Campos queue e interface são obrigatórios")
 	}
@@ -67,7 +48,7 @@ func (h *Handler) HandleQueueRemove(ctx context.Context, input *QueueInput) (*Qu
 	log.Printf("[API] Removendo interface %s da fila %s", input.Body.Interface, input.Body.Queue)
 
 	bgCtx := context.Background()
-	response, err := ami.SendQueueRemove(bgCtx, manager, input.Body.Queue, input.Body.Interface)
+	response, err := ami.SendQueueRemove(bgCtx, h.Manager, input.Body.Queue, input.Body.Interface)
 	if err != nil {
 		log.Printf("[API] Erro ao remover da fila: %v", err)
 		return nil, errorBadRequest(fmt.Sprintf("Erro ao remover da fila: %v", err))
@@ -82,15 +63,6 @@ func (h *Handler) HandleQueueRemove(ctx context.Context, input *QueueInput) (*Qu
 }
 
 func (h *Handler) HandleQueueStatus(ctx context.Context, input *QueueInput) (*QueueResponse, error) {
-	if input.AsteriskID == "" {
-		return nil, errorBadRequest("Header X-Asterisk-ID é obrigatório")
-	}
-
-	manager, found := h.Managers[input.AsteriskID]
-	if !found {
-		return nil, errorNotFound("Asterisk ID não encontrado")
-	}
-
 	if input.Body.Queue == "" || input.Body.Interface == "" {
 		return nil, errorBadRequest("Campos queue e interface são obrigatórios")
 	}
@@ -98,7 +70,7 @@ func (h *Handler) HandleQueueStatus(ctx context.Context, input *QueueInput) (*Qu
 	log.Printf("[API] Obtendo status da interface %s da fila %s", input.Body.Interface, input.Body.Queue)
 
 	bgCtx := context.Background()
-	response, err := ami.SendQueueStatus(bgCtx, manager, input.Body.Queue, input.Body.Interface)
+	response, err := ami.SendQueueStatus(bgCtx, h.Manager, input.Body.Queue, input.Body.Interface)
 	if err != nil {
 		log.Printf("[API] Erro ao obter status da fila: %v", err)
 		return nil, errorBadRequest(fmt.Sprintf("Erro ao obter status da fila: %v", err))

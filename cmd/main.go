@@ -26,42 +26,40 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	configAPIURL := os.Getenv("CONFIG_API_URL")
-	if configAPIURL == "" {
-		configAPIURL = "http://localhost:9000/config"
-	}
+	// configAPIURL := os.Getenv("CONFIG_API_URL")
+	// if configAPIURL == "" {
+	// 	configAPIURL = "http://localhost:9000/config"
+	// }
 
-	cfg, err := config.Load(configAPIURL)
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Erro ao carregar configuração: %v", err)
 	}
+	config.Current = cfg
 
-	log.Printf("Configuração carregada: servidor AMI %s", cfg.ID)
+	log.Printf("Configuração carregada: servidor AMI %s", config.Current.ID)
 
 	eventChan := make(chan ami.Event, 1000)
 
-	managers := make(map[string]*ami.AsteriskManager)
-
-	manager, err := ami.NewAsteriskManager(ctx, cfg.ID, cfg.AMIServer)
+	manager, err := ami.NewAsteriskManager(ctx, config.Current.ID, config.Current.AMIServer)
 	if err != nil {
-		log.Fatalf("Falha ao conectar AMI %s: %v", cfg.ID, err)
+		log.Fatalf("Falha ao conectar AMI %s: %v", config.Current.ID, err)
 	}
-	managers[cfg.ID] = manager
 	manager.Start(eventChan)
 
-	go webhook.ProcessEvents(eventChan, cfg)
+	go webhook.ProcessEvents(eventChan)
 
-	cdrDB, err := cdr.Open(cfg.CDRDB)
+	cdrDB, err := cdr.Open()
 	if err != nil {
 		log.Printf("AVISO: CDR database não disponível: %v", err)
 		cdrDB = nil
 	}
 
-	handler := api.NewHandler(managers, cfg, cdrDB)
+	handler := api.NewHandler(manager, cdrDB)
 
 	router := chi.NewRouter()
 
-	basePath := cfg.BasePath
+	basePath := config.Current.BasePath
 	if basePath == "" {
 		basePath = ""
 	}
@@ -111,8 +109,8 @@ func main() {
 		},
 	}
 
-	if cfg.ServerHost != "" {
-		serverURL := cfg.ServerHost
+	if config.Current.ServerHost != "" {
+		serverURL := config.Current.ServerHost
 		if basePath != "" {
 			serverURL = serverURL + basePath
 		}
@@ -193,6 +191,9 @@ func main() {
 		Summary:     "Envia evento de webhook",
 		Description: "Um evento que o AMIgow envia para o endpoint configurado",
 		Tags:        []string{"Webhooks"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
 	}, handler.HandleWebhookSchema)
 
 	huma.Register(humaAPI, huma.Operation{
@@ -232,6 +233,18 @@ func main() {
 	}, handler.HandleOpenGate)
 
 	huma.Register(humaAPI, huma.Operation{
+		OperationID: "get-basic-lists-condominios-slugs",
+		Method:      http.MethodGet,
+		Path:        "/basic-lists/condominios-slugs",
+		Summary:     "Lista slugs de condomínios",
+		Description: "Retorna a lista de slugs de condomínios. Resultado cacheado por 2 minutos.",
+		Tags:        []string{"Basic Lists"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandleCondominiosSlugs)
+
+	huma.Register(humaAPI, huma.Operation{
 		OperationID: "get-cdr-search",
 		Method:      http.MethodGet,
 		Path:        "/cdr/search",
@@ -269,11 +282,9 @@ func main() {
 
 	cancel()
 
-	for id, manager := range managers {
-		log.Printf("Fechando conexão com %s", id)
-		if err := manager.Close(); err != nil {
-			log.Printf("Erro ao fechar %s: %v", id, err)
-		}
+	log.Printf("Fechando conexão com %s", config.Current.ID)
+	if err := manager.Close(); err != nil {
+		log.Printf("Erro ao fechar %s: %v", config.Current.ID, err)
 	}
 
 	close(eventChan)

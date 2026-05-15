@@ -9,20 +9,10 @@ import (
 )
 
 type ChannelRedirectInput struct {
-	Body       ChannelRedirectRequest
-	AsteriskID string `header:"X-Asterisk-ID" doc:"ID do servidor Asterisk"`
+	Body ChannelRedirectRequest
 }
 
 func (h *Handler) HandleChannelRedirect(ctx context.Context, input *ChannelRedirectInput) (*ChannelRedirectResponse, error) {
-	if input.AsteriskID == "" {
-		return nil, errorBadRequest("Header X-Asterisk-ID é obrigatório")
-	}
-
-	manager, found := h.Managers[input.AsteriskID]
-	if !found {
-		return nil, errorNotFound("Asterisk ID não encontrado")
-	}
-
 	if input.Body.Channel == "" || input.Body.Exten == "" || input.Body.Context == "" || input.Body.Priority == "" {
 		return nil, errorBadRequest("Campos channel, exten, context e priority são obrigatórios")
 	}
@@ -37,7 +27,7 @@ func (h *Handler) HandleChannelRedirect(ctx context.Context, input *ChannelRedir
 		Priority: input.Body.Priority,
 	}
 
-	response, err := ami.SendChannelRedirect(bgCtx, manager, channelData)
+	response, err := ami.SendChannelRedirect(bgCtx, h.Manager, channelData)
 	if err != nil {
 		log.Printf("[API] Erro ao redirecionar canal: %v", err)
 		return nil, errorBadRequest(fmt.Sprintf("Erro ao redirecionar canal: %v", err))

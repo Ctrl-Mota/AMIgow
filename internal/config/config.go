@@ -1,5 +1,7 @@
 package config
 
+var Current *Config
+
 type Config struct {
 	ID                   string      `json:"id"`
 	APIKey               string      `json:"api_key"`
@@ -27,10 +29,11 @@ type Webhook struct {
 }
 
 type ApiConnect struct {
-	Host           string `json:"host"`
-	PathResolver   string `json:"path_resolver"`
-	PathOpenGate   string `json:"path_open_gate"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
+	Host                   string `json:"host"`
+	PathResolver           string `json:"path_resolver"`
+	PathOpenGate           string `json:"path_open_gate"`
+	PathCondominiosSlugs   string `json:"path_condominios_slugs"`
+	TimeoutSeconds         int    `json:"timeout_seconds"`
 }
 
 type CDRDatabase struct {

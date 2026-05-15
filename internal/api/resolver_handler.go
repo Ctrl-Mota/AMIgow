@@ -9,15 +9,24 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/safehouse/amigow/internal/config"
 )
+
+var condominiosSlugsCache struct {
+	sync.Mutex
+	data      []byte
+	expiresAt time.Time
+}
 
 func (h *Handler) HandleDynamicResolver(ctx context.Context, input *DynamicResolverInput) (*ResolverResponse, error) {
 	if input.Linkedid == "" {
 		return nil, errorBadRequest("parâmetro linkedid é obrigatório")
 	}
 
-	cfg := h.Config.ApiConnect
+	cfg := config.Current.ApiConnect
 	url := cfg.Host + cfg.PathResolver
 
 	query := map[string]string{
@@ -28,7 +37,7 @@ func (h *Handler) HandleDynamicResolver(ctx context.Context, input *DynamicResol
 
 	log.Printf("[RESOLVER] GET %s linkedid=%s quicknumber=%s", url, input.Linkedid, input.QuickNumber)
 
-	raw, err := getJSON(ctx, url, query, cfg.TimeoutSeconds, h.Config.ID)
+	raw, err := getJSON(ctx, url, query, cfg.TimeoutSeconds)
 	if err != nil {
 		log.Printf("[RESOLVER] Erro ao chamar API externa: %v", err)
 		return nil, errorInternal(fmt.Sprintf("erro ao resolver: %v", err))
@@ -47,7 +56,7 @@ func (h *Handler) HandleOpenGate(ctx context.Context, input *OpenGateInput) (*Re
 		return nil, errorBadRequest("parâmetro linkedid é obrigatório")
 	}
 
-	cfg := h.Config.ApiConnect
+	cfg := config.Current.ApiConnect
 	url := cfg.Host + cfg.PathOpenGate
 
 	body := map[string]string{
@@ -57,7 +66,7 @@ func (h *Handler) HandleOpenGate(ctx context.Context, input *OpenGateInput) (*Re
 
 	log.Printf("[OPEN-GATE] Chamando %s com linkedid=%s device_id=%s", url, input.Linkedid, input.DeviceID)
 
-	raw, err := postJSON(ctx, url, body, cfg.TimeoutSeconds, h.Config.ID)
+	raw, err := postJSON(ctx, url, body, cfg.TimeoutSeconds)
 	if err != nil {
 		log.Printf("[OPEN-GATE] Erro ao chamar API externa: %v", err)
 		return nil, errorInternal(fmt.Sprintf("erro ao abrir cancela: %v", err))
@@ -68,6 +77,49 @@ func (h *Handler) HandleOpenGate(ctx context.Context, input *OpenGateInput) (*Re
 		log.Printf("[OPEN-GATE] Resposta não compatível com o schema esperado: %v", err)
 		return nil, errorInternal("resposta da API de cancela em formato inválido")
 	}
+	return result, nil
+}
+
+func (h *Handler) HandleCondominiosSlugs(ctx context.Context, input *struct{}) (*CondominiosSlugsResponse, error) {
+	condominiosSlugsCache.Lock()
+	if condominiosSlugsCache.data != nil && time.Now().Before(condominiosSlugsCache.expiresAt) {
+		cached := condominiosSlugsCache.data
+		condominiosSlugsCache.Unlock()
+
+		var slugs []string
+		if err := json.Unmarshal(cached, &slugs); err != nil {
+			return nil, errorInternal("erro ao ler cache de condominios slugs")
+		}
+		result := &CondominiosSlugsResponse{}
+		result.Body = slugs
+		return result, nil
+	}
+	condominiosSlugsCache.Unlock()
+
+	cfg := config.Current.ApiConnect
+	url := cfg.Host + cfg.PathCondominiosSlugs
+
+	log.Printf("[CONDOMINIOS-SLUGS] GET %s", url)
+
+	raw, err := getJSON(ctx, url, nil, cfg.TimeoutSeconds)
+	if err != nil {
+		log.Printf("[CONDOMINIOS-SLUGS] Erro ao chamar API externa: %v", err)
+		return nil, errorInternal(fmt.Sprintf("erro ao buscar slugs: %v", err))
+	}
+
+	var slugs []string
+	if err := json.Unmarshal(raw, &slugs); err != nil {
+		log.Printf("[CONDOMINIOS-SLUGS] Resposta não compatível com []string: %v", err)
+		return nil, errorInternal("resposta da API em formato inválido")
+	}
+
+	condominiosSlugsCache.Lock()
+	condominiosSlugsCache.data = raw
+	condominiosSlugsCache.expiresAt = time.Now().Add(2 * time.Minute)
+	condominiosSlugsCache.Unlock()
+
+	result := &CondominiosSlugsResponse{}
+	result.Body = slugs
 	return result, nil
 }
 
@@ -82,14 +134,14 @@ func outboundHTTPTimeout(fullURL string, timeoutSeconds int) time.Duration {
 	return d
 }
 
-func applyOutboundHeaders(req *http.Request, sourceID string) {
-	req.Header.Set("X-Source", sourceID)
+func applyOutboundHeaders(req *http.Request) {
+	req.Header.Set("X-API-Key", config.Current.APIKey)
 	if strings.Contains(strings.ToLower(req.URL.Host), "ngrok") {
 		req.Header.Set("ngrok-skip-browser-warning", "true")
 	}
 }
 
-func postJSON(ctx context.Context, url string, body map[string]string, timeoutSeconds int, sourceID string) ([]byte, error) {
+func postJSON(ctx context.Context, url string, body map[string]string, timeoutSeconds int) ([]byte, error) {
 	timeout := outboundHTTPTimeout(url, timeoutSeconds)
 	client := &http.Client{Timeout: timeout}
 
@@ -106,7 +158,7 @@ func postJSON(ctx context.Context, url string, body map[string]string, timeoutSe
 		return nil, fmt.Errorf("erro ao criar request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	applyOutboundHeaders(req, sourceID)
+	applyOutboundHeaders(req)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -130,7 +182,7 @@ func postJSON(ctx context.Context, url string, body map[string]string, timeoutSe
 	return respBody, nil
 }
 
-func getJSON(ctx context.Context, url string, queryParams map[string]string, timeoutSeconds int, sourceID string) ([]byte, error) {
+func getJSON(ctx context.Context, url string, queryParams map[string]string, timeoutSeconds int) ([]byte, error) {
 	timeout := outboundHTTPTimeout(url, timeoutSeconds)
 	client := &http.Client{Timeout: timeout}
 
@@ -146,7 +198,7 @@ func getJSON(ctx context.Context, url string, queryParams map[string]string, tim
 		q.Set(key, value)
 	}
 	req.URL.RawQuery = q.Encode()
-	applyOutboundHeaders(req, sourceID)
+	applyOutboundHeaders(req)
 
 	resp, err := client.Do(req)
 	if err != nil {

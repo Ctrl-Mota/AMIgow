@@ -57,8 +57,7 @@ type ChannelRedirectResponse struct {
 
 type HealthResponse struct {
 	Body struct {
-		Status   string `json:"status" doc:"Status do serviço" example:"ok"`
-		Managers int    `json:"managers" doc:"Número de managers AMI conectados" example:"2"`
+		Status string `json:"status" doc:"Status do serviço" example:"ok"`
 	}
 }
 
@@ -126,6 +125,10 @@ type ResolverResponse struct {
 		Config   ResolverConfig    `json:"config" doc:"Configuração retornada para o ramal"`
 		Contacts []ResolverContact `json:"contacts" doc:"Lista de contatos para discagem sequencial"`
 	}
+}
+
+type CondominiosSlugsResponse struct {
+	Body []string
 }
 
 type CDRSearchInput struct {

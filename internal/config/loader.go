@@ -3,24 +3,13 @@ package config
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"time"
 )
 
-func Load(apiURL string) (*Config, error) {
-	log.Println("[CONFIG] Tentando carregar configuração da API:", apiURL)
-
-	config, err := loadFromAPI(apiURL)
-	if err != nil {
-		log.Println("[CONFIG] Falha ao carregar da API:", err)
-		log.Println("[CONFIG] Usando fallback local: config.json")
-		return loadFromFile("config.json")
-	}
-
-	log.Println("[CONFIG] Configuração carregada da API com sucesso")
-	return config, nil
+func Load() (*Config, error) {
+	return loadFromFile("config.json")
 }
 
 func loadFromAPI(apiURL string) (*Config, error) {
