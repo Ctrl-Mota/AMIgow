@@ -64,7 +64,9 @@ func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
 	if isAgentDumpEvent(amiEvent) {
 		return buildEvent("agent_dump", sourceID, amiEvent), true
 	}
-
+	if isAgentRingNoAnswerEvent(amiEvent) {
+		return buildEvent("agent_ring_no_answer", sourceID, amiEvent), true
+	}
 	return nil, false
 }
 
@@ -142,6 +144,10 @@ func isAgentConnectEvent(amiEvent goami.Response) bool {
 
 func isAgentDumpEvent(amiEvent goami.Response) bool {
 	return amiEvent.Get("Event") == "AgentDump"
+}
+
+func isAgentRingNoAnswerEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "AgentRingNoAnswer"
 }
 
 func isNewChannelEvent(amiEvent goami.Response) bool {
