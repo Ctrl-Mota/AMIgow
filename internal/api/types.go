@@ -14,7 +14,10 @@ type QueueRequest struct {
 	Queue     string `json:"queue" doc:"Nome da fila" example:"7000"`
 	Interface string `json:"interface" doc:"Interface do agente" example:"8001"`
 }
-
+type QueueStatusRequest struct {
+	Queue      string `json:"queue" doc:"Nome da fila" example:"7000"`
+	Interfaces string `json:"interfaces" doc:"Interfaces dos agentes" example:"8001,8002"`
+}
 type QueueResponse struct {
 	Body struct {
 		Response string `json:"Response" doc:"Status da resposta" example:"Success"`

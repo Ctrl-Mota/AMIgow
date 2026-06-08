@@ -35,6 +35,32 @@
     "password": "",
     "database": "asterisk",
     "table": "cdr"
+  },
+
+  "dashboard": {
+    "enabled": true,
+    "service_level_target_seconds": 20,
+    "reconcile_seconds": 60,
+    "persist_snapshot_seconds": 5,
+    "recommended_polling_ms": 2000,
+    "min_polling_ms": 1000,
+    "live_tick_ms": 1000,
+    "snapshot_path": "/var/lib/amigow/queue-dashboard.snapshot.json",
+    "events_path": "/var/lib/amigow/queue-dashboard.events.ndjson",
+    "alerts": {
+      "warning_longest_wait_seconds": 30,
+      "critical_longest_wait_seconds": 60,
+      "warning_waiting": 3,
+      "critical_waiting": 6,
+      "warning_service_level": 80,
+      "critical_service_level": 70,
+      "warning_abandon_rate": 3,
+      "critical_abandon_rate": 5,
+      "warning_asa_seconds": 30,
+      "critical_asa_seconds": 60,
+      "warning_paused_agents_percent": 30,
+      "critical_paused_agents_percent": 50
+    }
   }
 }
 

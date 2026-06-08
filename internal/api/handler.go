@@ -8,18 +8,21 @@ import (
 
 	"github.com/safehouse/amigow/internal/ami"
 	"github.com/safehouse/amigow/internal/config"
+	"github.com/safehouse/amigow/internal/queues"
 )
 
 type Handler struct {
 	Manager *ami.AsteriskManager
 	Config  *config.Config
 	CDRDB   *sql.DB
+	Store   *queues.SnapshotStore
 }
 
-func NewHandler(manager *ami.AsteriskManager, cdrDB *sql.DB) *Handler {
+func NewHandler(manager *ami.AsteriskManager, cdrDB *sql.DB, store *queues.SnapshotStore) *Handler {
 	return &Handler{
 		Manager: manager,
 		CDRDB:   cdrDB,
+		Store:   store,
 	}
 }
 

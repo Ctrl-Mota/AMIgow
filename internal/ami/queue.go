@@ -29,6 +29,13 @@ func SendQueueRemove(ctx context.Context, mgr *AsteriskManager, queue string, if
 	return goami.QueueRemove(ctx, mgr.socket, mgr.uuid, queueData)
 }
 
-func SendQueueStatus(ctx context.Context, mgr *AsteriskManager, queue string, iface string) (Response, error) {
+func SendQueueMemberStatus(ctx context.Context, mgr *AsteriskManager, queue string, iface string) (Response, error) {
 	return goami.QueueStatus(ctx, mgr.socket, mgr.uuid, ""+queue, "PJSIP/"+iface)
+}
+func SendQueueStatus(ctx context.Context, mgr *AsteriskManager, queue string) ([]goami.Response, error) {
+	return goami.QueueStatuses(ctx, mgr.socket, mgr.uuid, ""+queue)
+}
+
+func SendQueueStatusAll(ctx context.Context, mgr *AsteriskManager) ([]goami.Response, error) {
+	return goami.QueueStatuses(ctx, mgr.socket, mgr.uuid, "")
 }

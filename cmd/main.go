@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -16,6 +17,8 @@ import (
 	"github.com/safehouse/amigow/internal/api"
 	"github.com/safehouse/amigow/internal/cdr"
 	"github.com/safehouse/amigow/internal/config"
+	"github.com/safehouse/amigow/internal/freepbx"
+	"github.com/safehouse/amigow/internal/queues"
 	"github.com/safehouse/amigow/internal/webhook"
 )
 
@@ -47,15 +50,81 @@ func main() {
 	}
 	manager.Start(eventChan)
 
-	go webhook.ProcessEvents(eventChan)
-
 	cdrDB, err := cdr.Open()
 	if err != nil {
 		log.Printf("AVISO: CDR database não disponível: %v", err)
 		cdrDB = nil
 	}
 
-	handler := api.NewHandler(manager, cdrDB)
+	dashCfg := config.Current.Dashboard
+	webhookChan := make(chan ami.Event, 1000)
+	var dashboardChan chan ami.Event
+	var store *queues.SnapshotStore
+
+	if dashCfg.Enabled {
+		dashboardChan = make(chan ami.Event, 1000)
+		store = queues.New(
+			dashCfg.ServiceLevelTargetSeconds,
+			dashCfg.RecommendedPollingMs,
+			dashCfg.MinPollingMs,
+			toQueueThresholds(dashCfg.Alerts),
+		)
+
+		if cdrDB != nil {
+			metas, err := freepbx.LoadQueues(ctx, cdrDB)
+			if err != nil {
+				log.Printf("[DASH] Falha ao carregar metadata: %v", err)
+			} else {
+				store.ApplyMetadata(metas)
+				log.Printf("[DASH] %d queues carregadas do FreePBX", len(metas))
+			}
+		}
+
+		dirty := make(chan struct{}, 1)
+		go queues.RunReducer(dashboardChan, store, dashCfg.EventsPath, dirty)
+		go queues.RunPersist(ctx, store, queues.PersistConfig{
+			SnapshotPath:    dashCfg.SnapshotPath,
+			EventsPath:      dashCfg.EventsPath,
+			IntervalSeconds: dashCfg.PersistSnapshotSeconds,
+			Dirty:           dirty,
+		})
+		go queues.RunReconcile(ctx, manager, store, time.Duration(dashCfg.ReconcileSeconds)*time.Second)
+
+		liveTick := time.Duration(dashCfg.LiveTickMs) * time.Millisecond
+		if liveTick <= 0 {
+			liveTick = time.Second
+		}
+		go queues.RunLiveTick(ctx, store, liveTick)
+
+		go queues.RunEventsRetention(ctx, dashCfg.EventsPath, dashCfg.EventsRetentionDays)
+
+		// SendQueueStatusAll compartilha o mesmo socket TCP que o eventLoop.
+		// Rodar em goroutine separada com timeout evita bloquear o startup
+		// se o socket estiver ocupado. O ticker de reconciliação (60s) cobre
+		// qualquer falha aqui.
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[DASH] panic no snapshot inicial: %v", r)
+				}
+			}()
+			initCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+			initial, err := ami.SendQueueStatusAll(initCtx, manager)
+			if err != nil {
+				log.Printf("[DASH] Falha no QueueStatuses inicial (será tentado novamente em %ds): %v", dashCfg.ReconcileSeconds, err)
+				return
+			}
+			store.ApplyQueueStatuses(initial)
+			store.MarkAMIConnected(true)
+			log.Printf("[DASH] snapshot inicial carregado (%d responses)", len(initial))
+		}()
+	}
+
+	go fanOutEvents(eventChan, webhookChan, dashboardChan)
+	go webhook.ProcessEvents(webhookChan)
+
+	handler := api.NewHandler(manager, cdrDB, store)
 
 	router := chi.NewRouter()
 
@@ -245,6 +314,18 @@ func main() {
 	}, handler.HandleCondominiosSlugs)
 
 	huma.Register(humaAPI, huma.Operation{
+		OperationID: "patch-tip",
+		Method:      http.MethodPatch,
+		Path:        "/tip",
+		Summary:     "Trust IP and sync",
+		Description: "Confiar em um IP para evitar bloqueio por firewall",
+		Tags:        []string{"Firewall"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandleTip)
+
+	huma.Register(humaAPI, huma.Operation{
 		OperationID: "get-cdr-search",
 		Method:      http.MethodGet,
 		Path:        "/cdr/search",
@@ -255,6 +336,20 @@ func main() {
 			{"apiKey": {}},
 		},
 	}, handler.HandleCDRSearch)
+
+	if dashCfg.Enabled {
+		huma.Register(humaAPI, huma.Operation{
+			OperationID: "get-queues-dashboard",
+			Method:      http.MethodGet,
+			Path:        "/queues/dashboard",
+			Summary:     "Snapshot vivo das queues",
+			Description: "Retorna o estado atual de todas as queues alimentado por eventos AMI + metadados FreePBX. Suporta ETag/If-None-Match e parâmetro since (version) para 304.",
+			Tags:        []string{"Reports"},
+			Security: []map[string][]string{
+				{"apiKey": {}},
+			},
+		}, handler.HandleQueuesDashboard)
+	}
 
 	serverAddr := ":8080"
 	log.Printf("Servidor HTTP iniciado em %s", serverAddr)
@@ -290,4 +385,45 @@ func main() {
 	close(eventChan)
 
 	log.Println("=== AMIgow - Encerrado ===")
+}
+
+func fanOutEvents(src <-chan ami.Event, webhookChan chan<- ami.Event, dashboardChan chan<- ami.Event) {
+	var dropsWebhook, dropsDashboard int
+	for e := range src {
+		select {
+		case webhookChan <- e:
+		default:
+			dropsWebhook++
+			log.Printf("[FAN] webhook drop (total=%d)", dropsWebhook)
+		}
+		if dashboardChan != nil {
+			select {
+			case dashboardChan <- e:
+			default:
+				dropsDashboard++
+				log.Printf("[FAN] dashboard drop (total=%d)", dropsDashboard)
+			}
+		}
+	}
+	close(webhookChan)
+	if dashboardChan != nil {
+		close(dashboardChan)
+	}
+}
+
+func toQueueThresholds(c config.AlertThresholds) queues.AlertThresholds {
+	return queues.AlertThresholds{
+		WarningLongestWaitSeconds:   c.WarningLongestWaitSeconds,
+		CriticalLongestWaitSeconds:  c.CriticalLongestWaitSeconds,
+		WarningWaiting:              c.WarningWaiting,
+		CriticalWaiting:             c.CriticalWaiting,
+		WarningServiceLevel:         c.WarningServiceLevel,
+		CriticalServiceLevel:        c.CriticalServiceLevel,
+		WarningAbandonRate:          c.WarningAbandonRate,
+		CriticalAbandonRate:         c.CriticalAbandonRate,
+		WarningASASeconds:           c.WarningASASeconds,
+		CriticalASASeconds:          c.CriticalASASeconds,
+		WarningPausedAgentsPercent:  c.WarningPausedAgentsPercent,
+		CriticalPausedAgentsPercent: c.CriticalPausedAgentsPercent,
+	}
 }

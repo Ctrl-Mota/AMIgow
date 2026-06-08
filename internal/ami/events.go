@@ -19,7 +19,7 @@ func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
 	if eventType == "" {
 		return nil, false
 	}
-	// log.Printf("[AMI] Evento: %s - %v", eventType, amiEvent)
+	// log.Printf("[AMI] Eveneto: %s - %v", eventType, amiEvent)
 
 	if isAnswerEvent(amiEvent) {
 		return buildEvent("answer", sourceID, amiEvent), true
@@ -50,6 +50,28 @@ func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
 	}
 	if isQueueParamsEvent(amiEvent) {
 		return buildEvent("queue_params", sourceID, amiEvent), true
+	}
+
+	if isQueueEntryEvent(amiEvent) {
+		return buildEvent("queue_entry", sourceID, amiEvent), true
+	}
+	if isQueueMemberEvent(amiEvent) {
+		return buildEvent("queue_member", sourceID, amiEvent), true
+	}
+	if isQueueMemberStatusEvent(amiEvent) {
+		return buildEvent("queue_member_status", sourceID, amiEvent), true
+	}
+	if isQueueMemberPauseEvent(amiEvent) {
+		return buildEvent("queue_member_pause", sourceID, amiEvent), true
+	}
+	if isQueueMemberAddedEvent(amiEvent) {
+		return buildEvent("queue_member_added", sourceID, amiEvent), true
+	}
+	if isQueueMemberRemovedEvent(amiEvent) {
+		return buildEvent("queue_member_removed", sourceID, amiEvent), true
+	}
+	if isQueueStatusCompleteEvent(amiEvent) {
+		return buildEvent("queue_status_complete", sourceID, amiEvent), true
 	}
 
 	if isAgentCalledEvent(amiEvent) {
@@ -130,6 +152,34 @@ func isQueueCallerAbandonEvent(amiEvent goami.Response) bool {
 	return amiEvent.Get("Event") == "QueueCallerAbandon"
 }
 
+func isQueueEntryEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueEntry"
+}
+
+func isQueueMemberEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueMember"
+}
+
+func isQueueMemberStatusEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueMemberStatus"
+}
+
+func isQueueMemberPauseEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueMemberPause"
+}
+
+func isQueueMemberAddedEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueMemberAdded"
+}
+
+func isQueueMemberRemovedEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueMemberRemoved"
+}
+
+func isQueueStatusCompleteEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "QueueStatusComplete"
+}
+
 func isAgentCalledEvent(amiEvent goami.Response) bool {
 	return amiEvent.Get("Event") == "AgentCalled"
 }
@@ -174,6 +224,12 @@ func buildEvent(eventType string, sourceID string, amiEvent goami.Response) *Eve
 		"BridgeState", "BridgeType", "Channel1", "Channel2",
 		"Queue", "Position", "Count", "Linkedid", "Language", "AccountCode", "Strategy",
 		"Interface", "MemberName", "HoldTime",
+		"Wait", "OriginalPosition", "RingTime", "TalkTime", "Reason",
+		"StateInterface", "Status", "Paused", "PausedReason", "Penalty",
+		"CallsTaken", "LastCall", "LastPause", "LoginTime", "InCall",
+		"Ringinuse", "Membership", "Wrapuptime",
+		"Max", "Calls", "Holdtime", "Completed", "Abandoned",
+		"ServiceLevelPerf", "ServiceLevelPerf2",
 	}
 
 	for _, key := range allKeys {

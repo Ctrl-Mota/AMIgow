@@ -383,6 +383,88 @@ This project follows simplicity principles:
 - Simple logs with log.Println
 - Explicit error handling
 
+## Queues Dashboard
+
+O AMIgow mantém um **snapshot vivo** das filas em memória, alimentado pelos eventos AMI e enriquecido com metadados do FreePBX (banco `asterisk`). O endpoint nunca consulta AMI/DB sob demanda.
+
+### Habilitar
+
+No `config.json`:
+
+```json
+"dashboard": {
+  "enabled": true,
+  "service_level_target_seconds": 20,
+  "reconcile_seconds": 60,
+  "persist_snapshot_seconds": 5,
+  "recommended_polling_ms": 2000,
+  "min_polling_ms": 1000,
+  "snapshot_path": "/var/lib/amigow/queue-dashboard.snapshot.json",
+  "events_path": "/var/lib/amigow/queue-dashboard.events.ndjson"
+}
+```
+
+O dashboard reusa a conexão `cdr_db` para ler `queues_config` e `queues_details` do FreePBX, então não exige nova credencial.
+
+### Endpoint
+
+```
+GET /queues/dashboard
+GET /queues/dashboard?since=<version>
+```
+
+Headers suportados:
+
+- `If-None-Match: "queues-dashboard-<version>"` → retorna 304 quando não mudou.
+
+Resposta resumida:
+
+```json
+{
+  "version": 18492,
+  "generated_at": "2026-06-02T15:10:22-03:00",
+  "polling": { "recommended_interval_ms": 2000, "min_interval_ms": 1000 },
+  "ami":     { "connected": true, "last_event_at": "...", "last_snapshot_at": "...", "reconnects": 0 },
+  "totals":  { "queues": 3, "waiting": 7, "longest_wait_seconds": 74, "agents_total": 16, "agents_available": 5, "agents_in_call": 8, "offered_15m": 58, "answered_15m": 51, "abandoned_15m": 3, "service_level_15m": 78.4 },
+  "queues":  [ ... ],
+  "alerts":  [ ... ]
+}
+```
+
+### Como funciona
+
+- Boot: carrega metadados (`queues_config`/`queues_details`), executa `Action: QueueStatus` no AMI e monta snapshot inicial.
+- Cada evento AMI relevante (`QueueCallerJoin`, `QueueCallerAbandon`, `AgentConnect`, `AgentComplete`, `QueueMemberStatus`, etc.) atualiza o snapshot e bumpa a `version`.
+- Métricas: janela rolling de 15 minutos + acumulador `today` (offered/answered/abandoned/SLA/ASA/talk).
+- Reconciliação: a cada 60s reaplica `QueueStatus` para autocorrigir divergências.
+- Persistência: `snapshot.json` reescrito via `rename` atômico a cada 5s **OU** 250ms após qualquer evento AMI aplicado (debounce, o que vier primeiro). Eventos importantes em `events.YYYY-MM-DD.ndjson` (append diário com retenção configurável).
+
+### Fluxo realtime e auditoria
+
+O caminho de cada evento é:
+
+```
+AMI -> eventChan -> fanOutEvents -> dashboardChan -> RunReducer -> SnapshotStore (mem) -> endpoint
+                                                                              `-> dirty -> snapshot.json (debounced 250ms)
+```
+
+Para auditar em runtime, três classes de log permitem rastrear o pipeline ponta-a-ponta:
+
+- `[AMI] Evento: ...` — evento bruto recebido do Asterisk.
+- `[REDUCER] <tipo> queue=<id> version=<n>` — confirma que o reducer aplicou e bumpou a `version` do snapshot.
+- `[DASH] GET dashboard since=X current=Y resp=200|304` — exatamente o que o endpoint devolveu.
+- `[FAN] dashboard drop (total=N)` — só aparece se o canal do dashboard encher (não deveria ocorrer em uso normal, buffer 1000).
+
+Se um evento aparece em `[AMI]` mas não em `[REDUCER]`, ele foi descartado pelo `ProcessAMIEvent` (tipo não monitorado) ou pelo fan-out (canal cheio).
+
+### Polling no frontend
+
+Recomendado polling de 2s no JSON; o contador visual de espera deve ser local no frontend (use `entered_at`).
+
+```ts
+const waitSeconds = Math.floor((Date.now() - new Date(caller.entered_at).getTime()) / 1000);
+```
+
 ## Troubleshooting
 
 ### "socket error"
@@ -443,6 +525,7 @@ MIT License
 
 
 ## Setup
+go build -o amigow cmd/main.go
 
 ### copiar config do db para o config.json
 ssh -t safehouse_freepbx_hx "sudo cat /etc/freepbx.conf"
@@ -461,6 +544,7 @@ scp ./amigow safehouse_freepbx_hx:amigow/amigow
 ssh safehouse_freepbx_hx
 sudo systemctl stop amigow
 sudo cp ./amigow/amigow /opt/amigow/amigow
+sudo cp ./amigow/config.json /opt/amigow/config.json
 sudo systemctl start amigow
 sudo journalctl -u amigow -f
 
@@ -495,7 +579,8 @@ IP="177.107.232.238"
 
 sudo fwconsole firewall trust "$IP/32"
 sudo fwconsole firewall sync
-
+sudo fwconsole firewall restart 
+"
 for jail in $(sudo fail2ban-client status | sed -n "s/.*Jail list:\s*//p" | tr "," " "); do
   echo "Unban $IP from $jail"
   sudo fail2ban-client set "$jail" unbanip "$IP" || true
