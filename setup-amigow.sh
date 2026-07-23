@@ -82,3 +82,12 @@ location /amigow/ {
     # 2) Define um CSP único (TUDO EM UMA LINHA)
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob:; font-src 'self' https://unpkg.com data:; connect-src 'self';" always;
 "
+
+
+# Implementação recomendada — regra sudoers NOPASSWD para suportar o tip.sh
+# sudo nano /etc/sudoers.d/amigow
+# asterisk ALL=(root) NOPASSWD: /usr/sbin/fwconsole, /usr/bin/fail2ban-client
+
+# sudo visudo -cf /etc/sudoers.d/amigow   # valida sintaxe
+# sudo chmod 440 /etc/sudoers.d/amigow
+
