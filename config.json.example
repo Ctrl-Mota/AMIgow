@@ -1,37 +1,35 @@
 {
-  "api_key": "your-secret-key",
+  "id": "pbx-01",
+  "api_key": "generate-a-long-random-string",
   "base_path": "/amigow",
-  "server_host": "https://[host]",
-  "ami_servers": [
-    {
-      "id": "teste-1",
-      "host": "localhost",
-      "port": 5038,
-      "username": "amigow",
-      "password": "TNwVn82RCNMXgA",
-      "webhooks": [
-        {
-          "url": "https://[your-host]/api/ami-webhook",
-          "timeout_seconds": 10,
-          "events_filter": ["answer", "hangup", "missed", "invite"]
-        }
-      ]
-    }
-  ],
-  "config_api_url": "http://localhost:9000/config",
-  "config_refresh_minutes": 5,
+  "server_host": "https://your-host.example.com",
+
+  "ami_server": {
+    "host": "127.0.0.1",
+    "port": 5038,
+    "username": "amigow",
+    "password": "your-strong-secret",
+    "webhooks": [
+      {
+        "url": "https://your-app.example.com/api/amigow/events",
+        "timeout_seconds": 10,
+        "events_filter": ["answer", "hangup", "missed", "invite"]
+      }
+    ]
+  },
 
   "api_connect": {
-    "host": "https://[your-host]",
-    "path_resolver": "/asterisk-egress/dynamic-resolver",
-    "path_open_gate": "/asterisk-egress/open-gate",
+    "host": "https://your-app.example.com",
+    "path_resolver": "/api/amigow/resolver",
+    "path_open_gate": "/api/amigow/open-gate",
+    "path_condominios_slugs": "/api/amigow/basic-lists/condominios-slugs",
     "timeout_seconds": 10
   },
 
   "cdr_db": {
     "host": "127.0.0.1",
     "port": 3306,
-    "username": "asterisk",
+    "username": "freepbxuser",
     "password": "",
     "database": "asterisk",
     "table": "cdr"
@@ -45,6 +43,7 @@
     "recommended_polling_ms": 2000,
     "min_polling_ms": 1000,
     "live_tick_ms": 1000,
+    "events_retention_days": 7,
     "snapshot_path": "/var/lib/amigow/queue-dashboard.snapshot.json",
     "events_path": "/var/lib/amigow/queue-dashboard.events.ndjson",
     "alerts": {
@@ -63,7 +62,3 @@
     }
   }
 }
-
-
-
-
