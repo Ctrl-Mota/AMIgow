@@ -89,6 +89,14 @@ func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
 	if isAgentRingNoAnswerEvent(amiEvent) {
 		return buildEvent("agent_ring_no_answer", sourceID, amiEvent), true
 	}
+
+	if isDTMFBeginEvent(amiEvent) {
+		return buildEvent("dtmf_begin", sourceID, amiEvent), true
+	}
+	if isDTMFEndEvent(amiEvent) {
+		return buildEvent("dtmf_end", sourceID, amiEvent), true
+	}
+
 	return nil, false
 }
 
@@ -200,6 +208,14 @@ func isAgentRingNoAnswerEvent(amiEvent goami.Response) bool {
 	return amiEvent.Get("Event") == "AgentRingNoAnswer"
 }
 
+func isDTMFBeginEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "DTMFBegin"
+}
+
+func isDTMFEndEvent(amiEvent goami.Response) bool {
+	return amiEvent.Get("Event") == "DTMFEnd"
+}
+
 func isNewChannelEvent(amiEvent goami.Response) bool {
 	eventType := amiEvent.Get("Event")
 	if eventType == "Newchannel" {
@@ -230,6 +246,7 @@ func buildEvent(eventType string, sourceID string, amiEvent goami.Response) *Eve
 		"Ringinuse", "Membership", "Wrapuptime",
 		"Max", "Calls", "Holdtime", "Completed", "Abandoned",
 		"ServiceLevelPerf", "ServiceLevelPerf2",
+		"Digit", "Direction", "DurationMSec", "Begin", "End",
 	}
 
 	for _, key := range allKeys {
