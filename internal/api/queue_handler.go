@@ -23,13 +23,12 @@ func (h *Handler) HandleQueueAdd(ctx context.Context, input *QueueInput) (*Queue
 
 	log.Printf("[API] Adicionando interface %s à fila %s", input.Body.Interface, input.Body.Queue)
 
-	bgCtx := context.Background()
 	queueData := ami.QueueData{
 		Queue:     input.Body.Queue,
 		Interface: input.Body.Interface,
 	}
 
-	response, err := ami.SendQueueAdd(bgCtx, h.Manager, queueData)
+	response, err := ami.SendQueueAdd(ctx, h.Manager, queueData)
 	if err != nil {
 		log.Printf("[API] Erro ao adicionar à fila: %v", err)
 		return nil, errorBadRequest(fmt.Sprintf("Erro ao adicionar à fila: %v", err))
@@ -51,8 +50,7 @@ func (h *Handler) HandleQueueRemove(ctx context.Context, input *QueueInput) (*Qu
 
 	log.Printf("[API] Removendo interface %s da fila %s", input.Body.Interface, input.Body.Queue)
 
-	bgCtx := context.Background()
-	response, err := ami.SendQueueRemove(bgCtx, h.Manager, input.Body.Queue, input.Body.Interface)
+	response, err := ami.SendQueueRemove(ctx, h.Manager, input.Body.Queue, input.Body.Interface)
 	if err != nil {
 		log.Printf("[API] Erro ao remover da fila: %v", err)
 		return nil, errorBadRequest(fmt.Sprintf("Erro ao remover da fila: %v", err))
@@ -73,20 +71,20 @@ func (h *Handler) HandleQueueStatus(ctx context.Context, input *QueueStatusInput
 
 	log.Printf("[API] Obtendo status das interfaces %s da fila %s", input.Body.Interfaces, input.Body.Queue)
 
-	bgCtx := context.Background()
-	ami.SendQueueStatus(bgCtx, h.Manager, input.Body.Queue)
+	received := 0
 	interfaces := strings.Split(input.Body.Interfaces, ",")
 	for _, iface := range interfaces {
-		_, err := ami.SendQueueMemberStatus(bgCtx, h.Manager, input.Body.Queue, iface)
+		events, err := ami.SendQueueMemberStatus(ctx, h.Manager, input.Body.Queue, iface)
 		if err != nil {
 			log.Printf("[API] Erro ao obter status da interface %s: %v", iface, err)
 			return nil, errorBadRequest(fmt.Sprintf("Erro ao obter status da interface %s: %v", iface, err))
 		}
+		received += len(events)
 	}
 
 	result := &QueueResponse{}
 	result.Body.Response = "Success"
-	result.Body.Message = "Status solicitado"
+	result.Body.Message = fmt.Sprintf("Status obtido (%d eventos)", received)
 
 	return result, nil
 }

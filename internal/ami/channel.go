@@ -1,10 +1,6 @@
 package ami
 
-import (
-	"context"
-
-	goami "github.com/heltonmarx/goami/ami"
-)
+import "context"
 
 type ChannelData struct {
 	Channel  string
@@ -14,11 +10,10 @@ type ChannelData struct {
 }
 
 func SendChannelRedirect(ctx context.Context, mgr *AsteriskManager, data ChannelData) (Response, error) {
-	callData := goami.CallData{
-		Channel:  data.Channel,
-		Exten:    data.Exten,
-		Context:  data.Context,
-		Priority: data.Priority,
-	}
-	return goami.Redirect(ctx, mgr.socket, mgr.uuid, callData)
+	return mgr.request(ctx, "Redirect", []Field{
+		{Key: "Channel", Value: data.Channel},
+		{Key: "Exten", Value: data.Exten},
+		{Key: "Context", Value: data.Context},
+		{Key: "Priority", Value: data.Priority},
+	})
 }

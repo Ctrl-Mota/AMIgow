@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	goami "github.com/heltonmarx/goami/ami"
 	"github.com/safehouse/amigow/internal/ami"
 	"github.com/safehouse/amigow/internal/freepbx"
 )
@@ -146,7 +145,7 @@ func (s *SnapshotStore) ApplyEvent(e ami.Event) {
 	s.applyEventLocked(e)
 }
 
-func (s *SnapshotStore) ApplyQueueStatuses(events []goami.Response) {
+func (s *SnapshotStore) ApplyQueueStatuses(events []ami.Response) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -416,7 +415,7 @@ func newQueueState(id string) *queueState {
 	}
 }
 
-func buildAgentFromResponse(ev goami.Response) *AgentSnapshot {
+func buildAgentFromResponse(ev ami.Response) *AgentSnapshot {
 	iface := ev.Get("Interface")
 	stateIface := ev.Get("StateInterface")
 	memberName := ev.Get("MemberName")
@@ -522,7 +521,7 @@ func extractExtension(iface string) string {
 	if iface == "" {
 		return ""
 	}
-	prefixes := []string{"Local/", "PJSIP/", "SIP/", "IAX2/", "DAHDI/"}
+	prefixes := []string{"Local/", "PJSIP/", "SIP/", "IAX2/", "DAHDI/", "hint:"}
 	rest := iface
 	for _, p := range prefixes {
 		if len(rest) > len(p) && rest[:len(p)] == p {

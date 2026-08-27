@@ -98,10 +98,8 @@ func main() {
 
 		go queues.RunEventsRetention(ctx, dashCfg.EventsPath, dashCfg.EventsRetentionDays)
 
-		// SendQueueStatusAll compartilha o mesmo socket TCP que o eventLoop.
-		// Rodar em goroutine separada com timeout evita bloquear o startup
-		// se o socket estiver ocupado. O ticker de reconciliação (60s) cobre
-		// qualquer falha aqui.
+		// Rodar em goroutine separada evita atrasar o startup se o AMI estiver
+		// lento. O ticker de reconciliação cobre qualquer falha aqui.
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -375,12 +373,13 @@ func main() {
 	log.Printf("Sinal recebido: %v", sig)
 	log.Println("Encerrando conexões...")
 
-	cancel()
-
+	// O manager é fechado antes do cancel para o Logoff ainda ter conexão.
 	log.Printf("Fechando conexão com %s", config.Current.ID)
 	if err := manager.Close(); err != nil {
 		log.Printf("Erro ao fechar %s: %v", config.Current.ID, err)
 	}
+
+	cancel()
 
 	close(eventChan)
 

@@ -1,10 +1,8 @@
 package ami
 
-import (
-	"context"
+import "context"
 
-	goami "github.com/heltonmarx/goami/ami"
-)
+const queueStatusComplete = "QueueStatusComplete"
 
 type QueueData struct {
 	Queue     string
@@ -12,30 +10,34 @@ type QueueData struct {
 }
 
 func SendQueueAdd(ctx context.Context, mgr *AsteriskManager, data QueueData) (Response, error) {
-	queueData := goami.QueueData{
-		Queue:     "" + data.Queue,
-		Interface: "PJSIP/" + data.Interface,
-		Penalty:   "0",
-		Paused:    "false",
-	}
-	return goami.QueueAdd(ctx, mgr.socket, mgr.uuid, queueData)
+	return mgr.request(ctx, "QueueAdd", []Field{
+		{Key: "Queue", Value: data.Queue},
+		{Key: "Interface", Value: "PJSIP/" + data.Interface},
+		{Key: "Penalty", Value: "0"},
+		{Key: "Paused", Value: "false"},
+	})
 }
 
 func SendQueueRemove(ctx context.Context, mgr *AsteriskManager, queue string, iface string) (Response, error) {
-	queueData := goami.QueueData{
-		Queue:     "" + queue,
-		Interface: "PJSIP/" + iface,
-	}
-	return goami.QueueRemove(ctx, mgr.socket, mgr.uuid, queueData)
+	return mgr.request(ctx, "QueueRemove", []Field{
+		{Key: "Queue", Value: queue},
+		{Key: "Interface", Value: "PJSIP/" + iface},
+	})
 }
 
-func SendQueueMemberStatus(ctx context.Context, mgr *AsteriskManager, queue string, iface string) (Response, error) {
-	return goami.QueueStatus(ctx, mgr.socket, mgr.uuid, ""+queue, "PJSIP/"+iface)
-}
-func SendQueueStatus(ctx context.Context, mgr *AsteriskManager, queue string) ([]goami.Response, error) {
-	return goami.QueueStatuses(ctx, mgr.socket, mgr.uuid, ""+queue)
+func SendQueueMemberStatus(ctx context.Context, mgr *AsteriskManager, queue string, iface string) ([]Response, error) {
+	return mgr.requestList(ctx, "QueueStatus", queueStatusComplete, []Field{
+		{Key: "Queue", Value: queue},
+		{Key: "Member", Value: "PJSIP/" + iface},
+	})
 }
 
-func SendQueueStatusAll(ctx context.Context, mgr *AsteriskManager) ([]goami.Response, error) {
-	return goami.QueueStatuses(ctx, mgr.socket, mgr.uuid, "")
+func SendQueueStatus(ctx context.Context, mgr *AsteriskManager, queue string) ([]Response, error) {
+	return mgr.requestList(ctx, "QueueStatus", queueStatusComplete, []Field{
+		{Key: "Queue", Value: queue},
+	})
+}
+
+func SendQueueStatusAll(ctx context.Context, mgr *AsteriskManager) ([]Response, error) {
+	return mgr.requestList(ctx, "QueueStatus", queueStatusComplete, nil)
 }

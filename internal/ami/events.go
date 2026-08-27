@@ -2,8 +2,6 @@ package ami
 
 import (
 	"time"
-
-	goami "github.com/heltonmarx/goami/ami"
 )
 
 type Event struct {
@@ -13,13 +11,12 @@ type Event struct {
 	Data      map[string]string
 }
 
-func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
+func ProcessAMIEvent(amiEvent Response, sourceID string) (*Event, bool) {
 	eventType := amiEvent.Get("Event")
 
 	if eventType == "" {
 		return nil, false
 	}
-	// log.Printf("[AMI] Eveneto: %s - %v", eventType, amiEvent)
 
 	if isAnswerEvent(amiEvent) {
 		return buildEvent("answer", sourceID, amiEvent), true
@@ -38,6 +35,7 @@ func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
 	}
 
 	if isQueueCallerJoinEvent(amiEvent) {
+		//log.Printf("[AMI] join: %s - %v", eventType, amiEvent)
 		return buildEvent("queue_join", sourceID, amiEvent), true
 	}
 
@@ -96,11 +94,10 @@ func ProcessAMIEvent(amiEvent goami.Response, sourceID string) (*Event, bool) {
 	if isDTMFEndEvent(amiEvent) {
 		return buildEvent("dtmf_end", sourceID, amiEvent), true
 	}
-
 	return nil, false
 }
 
-func isAnswerEvent(amiEvent goami.Response) bool {
+func isAnswerEvent(amiEvent Response) bool {
 	eventType := amiEvent.Get("Event")
 
 	if eventType == "Newchannel" {
@@ -120,15 +117,15 @@ func isAnswerEvent(amiEvent goami.Response) bool {
 	return false
 }
 
-func isQueueParamsEvent(amiEvent goami.Response) bool {
+func isQueueParamsEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueParams"
 }
 
-func isHangupEvent(amiEvent goami.Response) bool {
+func isHangupEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "Hangup"
 }
 
-func isMissedCallEvent(amiEvent goami.Response) bool {
+func isMissedCallEvent(amiEvent Response) bool {
 	eventType := amiEvent.Get("Event")
 
 	if eventType == "DialEnd" {
@@ -148,75 +145,75 @@ func isMissedCallEvent(amiEvent goami.Response) bool {
 	return false
 }
 
-func isQueueCallerJoinEvent(amiEvent goami.Response) bool {
+func isQueueCallerJoinEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueCallerJoin"
 }
 
-func isQueueCallerLeaveEvent(amiEvent goami.Response) bool {
+func isQueueCallerLeaveEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueCallerLeave"
 }
 
-func isQueueCallerAbandonEvent(amiEvent goami.Response) bool {
+func isQueueCallerAbandonEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueCallerAbandon"
 }
 
-func isQueueEntryEvent(amiEvent goami.Response) bool {
+func isQueueEntryEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueEntry"
 }
 
-func isQueueMemberEvent(amiEvent goami.Response) bool {
+func isQueueMemberEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueMember"
 }
 
-func isQueueMemberStatusEvent(amiEvent goami.Response) bool {
+func isQueueMemberStatusEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueMemberStatus"
 }
 
-func isQueueMemberPauseEvent(amiEvent goami.Response) bool {
+func isQueueMemberPauseEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueMemberPause"
 }
 
-func isQueueMemberAddedEvent(amiEvent goami.Response) bool {
+func isQueueMemberAddedEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueMemberAdded"
 }
 
-func isQueueMemberRemovedEvent(amiEvent goami.Response) bool {
+func isQueueMemberRemovedEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueMemberRemoved"
 }
 
-func isQueueStatusCompleteEvent(amiEvent goami.Response) bool {
+func isQueueStatusCompleteEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "QueueStatusComplete"
 }
 
-func isAgentCalledEvent(amiEvent goami.Response) bool {
+func isAgentCalledEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "AgentCalled"
 }
 
-func isAgentCompleteEvent(amiEvent goami.Response) bool {
+func isAgentCompleteEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "AgentComplete"
 }
 
-func isAgentConnectEvent(amiEvent goami.Response) bool {
+func isAgentConnectEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "AgentConnect"
 }
 
-func isAgentDumpEvent(amiEvent goami.Response) bool {
+func isAgentDumpEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "AgentDump"
 }
 
-func isAgentRingNoAnswerEvent(amiEvent goami.Response) bool {
+func isAgentRingNoAnswerEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "AgentRingNoAnswer"
 }
 
-func isDTMFBeginEvent(amiEvent goami.Response) bool {
+func isDTMFBeginEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "DTMFBegin"
 }
 
-func isDTMFEndEvent(amiEvent goami.Response) bool {
+func isDTMFEndEvent(amiEvent Response) bool {
 	return amiEvent.Get("Event") == "DTMFEnd"
 }
 
-func isNewChannelEvent(amiEvent goami.Response) bool {
+func isNewChannelEvent(amiEvent Response) bool {
 	eventType := amiEvent.Get("Event")
 	if eventType == "Newchannel" {
 		channelState := amiEvent.Get("ChannelStateDesc")
@@ -227,7 +224,7 @@ func isNewChannelEvent(amiEvent goami.Response) bool {
 	return false
 }
 
-func buildEvent(eventType string, sourceID string, amiEvent goami.Response) *Event {
+func buildEvent(eventType string, sourceID string, amiEvent Response) *Event {
 	data := make(map[string]string)
 
 	allKeys := []string{

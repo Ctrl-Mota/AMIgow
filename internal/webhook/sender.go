@@ -71,7 +71,7 @@ func sendWebhook(event ami.Event, webhook config.Webhook) {
 	success := attemptSend(client, webhook.URL, jsonPayload, event.Type)
 
 	if !success {
-		// log.Printf("[WEBHOOK] Tentando retry para %s", webhook.URL)
+		log.Printf("[WEBHOOK] Tentando retry para %s", webhook.URL)
 		// time.Sleep(1 * time.Second)
 		// attemptSend(client, webhook.URL, jsonPayload, event.Source, event.Type)
 	}

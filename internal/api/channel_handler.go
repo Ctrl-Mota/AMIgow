@@ -19,7 +19,6 @@ func (h *Handler) HandleChannelRedirect(ctx context.Context, input *ChannelRedir
 
 	log.Printf("[API] Redirecionando canal %s para ramal %s@%s", input.Body.Channel, input.Body.Exten, input.Body.Context)
 
-	bgCtx := context.Background()
 	channelData := ami.ChannelData{
 		Channel:  input.Body.Channel,
 		Exten:    input.Body.Exten,
@@ -27,7 +26,7 @@ func (h *Handler) HandleChannelRedirect(ctx context.Context, input *ChannelRedir
 		Priority: input.Body.Priority,
 	}
 
-	response, err := ami.SendChannelRedirect(bgCtx, h.Manager, channelData)
+	response, err := ami.SendChannelRedirect(ctx, h.Manager, channelData)
 	if err != nil {
 		log.Printf("[API] Erro ao redirecionar canal: %v", err)
 		return nil, errorBadRequest(fmt.Sprintf("Erro ao redirecionar canal: %v", err))

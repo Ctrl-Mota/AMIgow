@@ -8,6 +8,8 @@ import (
 	"github.com/safehouse/amigow/internal/ami"
 )
 
+const reconcileQueryTimeout = 20 * time.Second
+
 func RunReconcile(ctx context.Context, mgr *ami.AsteriskManager, store *SnapshotStore, every time.Duration) {
 	if every <= 0 {
 		every = 60 * time.Second
@@ -23,7 +25,9 @@ func RunReconcile(ctx context.Context, mgr *ami.AsteriskManager, store *Snapshot
 			log.Println("[DASH] reconcile encerrado")
 			return
 		case <-ticker.C:
-			events, err := ami.SendQueueStatusAll(ctx, mgr)
+			queryCtx, cancel := context.WithTimeout(ctx, reconcileQueryTimeout)
+			events, err := ami.SendQueueStatusAll(queryCtx, mgr)
+			cancel()
 			if err != nil {
 				log.Printf("[DASH] reconcile: erro QueueStatuses: %v", err)
 				store.MarkAMIConnected(false)

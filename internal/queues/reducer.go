@@ -100,7 +100,7 @@ func requiresQueue(eventType string) bool {
 
 // lookupQueueForCallerLocked tenta achar a queue dona de um caller quando o
 // evento chega sem o campo Queue (cenario visto em alguns QueueCallerAbandon
-// e AgentComplete agregados pelo goami). Procura por Uniqueid e por Linkedid.
+// e AgentComplete). Procura por Uniqueid e por Linkedid.
 func (s *SnapshotStore) lookupQueueForCallerLocked(e ami.Event) *queueState {
 	uid := e.Data["Uniqueid"]
 	linkedID := e.Data["Linkedid"]
@@ -309,6 +309,7 @@ func (s *SnapshotStore) applyAgentCompleteLocked(q *queueState, e ami.Event) {
 }
 
 func (s *SnapshotStore) applyMemberUpsertLocked(q *queueState, e ami.Event) {
+	log.Printf("[REDUCER] applyMemberUpsertLocked: %v", e)
 	ext := memberExtension(e)
 	if ext == "" {
 		return

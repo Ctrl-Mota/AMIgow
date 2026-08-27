@@ -3,13 +3,9 @@ package ami
 import (
 	"context"
 	"fmt"
-
-	goami "github.com/heltonmarx/goami/ami"
+	"strconv"
+	"strings"
 )
-
-type Response interface {
-	Get(key string) string
-}
 
 type OriginateData struct {
 	Channel     string
@@ -25,80 +21,101 @@ type OriginateData struct {
 }
 
 func SendOriginate(ctx context.Context, mgr *AsteriskManager, data OriginateData) (Response, error) {
-	originateData := goami.OriginateData{
-		Channel:     data.Channel,
-		Exten:       data.Exten,
-		Context:     data.Context,
-		Priority:    data.Priority,
-		CallerID:    data.CallerID,
-		Timeout:     data.Timeout,
-		Variable:    data.Variable,
-		Application: data.Application,
-		Data:        data.Data,
-		Async:       data.Async,
+	fields := make([]Field, 0, 10+len(data.Variable))
+	fields = appendField(fields, "Channel", data.Channel)
+	fields = appendField(fields, "Exten", data.Exten)
+	fields = appendField(fields, "Context", data.Context)
+	if data.Priority > 0 {
+		fields = appendField(fields, "Priority", strconv.Itoa(data.Priority))
 	}
+	fields = appendField(fields, "Application", data.Application)
+	fields = appendField(fields, "Data", data.Data)
+	if data.Timeout > 0 {
+		fields = appendField(fields, "Timeout", strconv.Itoa(data.Timeout))
+	}
+	fields = appendField(fields, "CallerID", data.CallerID)
+	for _, variable := range data.Variable {
+		fields = appendField(fields, "Variable", variable)
+	}
+	fields = appendField(fields, "Async", data.Async)
 
-	return goami.Originate(ctx, mgr.socket, mgr.uuid, originateData)
+	return mgr.request(ctx, "Originate", fields)
 }
 
 func SendHangup(ctx context.Context, mgr *AsteriskManager, channel string, cause string) (Response, error) {
 	if cause == "" {
 		cause = "16"
 	}
-	return goami.Hangup(ctx, mgr.socket, mgr.uuid, channel, cause)
+	return mgr.request(ctx, "Hangup", []Field{
+		{Key: "Channel", Value: channel},
+		{Key: "Cause", Value: cause},
+	})
 }
 
 func SendCommand(ctx context.Context, mgr *AsteriskManager, command string) (Response, error) {
-	return goami.Command(ctx, mgr.socket, mgr.uuid, command)
+	return mgr.request(ctx, "Command", []Field{
+		{Key: "Command", Value: command},
+	})
 }
 
 func SendPing(ctx context.Context, mgr *AsteriskManager) error {
-	return goami.Ping(ctx, mgr.socket, mgr.uuid)
+	response, err := mgr.request(ctx, "Ping", nil)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(response.Get("Response"), "Success") {
+		return fmt.Errorf("ping falhou: %s", response.Get("Message"))
+	}
+	return nil
 }
 
 func GetCoreStatus(ctx context.Context, mgr *AsteriskManager) (Response, error) {
-	return goami.CoreStatus(ctx, mgr.socket, mgr.uuid)
+	return mgr.request(ctx, "CoreStatus", nil)
 }
 
 func GetCoreShowChannels(ctx context.Context, mgr *AsteriskManager) ([]Response, error) {
-	channels, err := goami.CoreShowChannels(ctx, mgr.socket, mgr.uuid)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]Response, len(channels))
-	for i, ch := range channels {
-		result[i] = ch
-	}
-	return result, nil
+	return mgr.requestList(ctx, "CoreShowChannels", "CoreShowChannelsComplete", nil)
 }
 
 func GetChannelStatus(ctx context.Context, mgr *AsteriskManager, channel string) (Response, error) {
-	return goami.Status(ctx, mgr.socket, mgr.uuid, channel, "")
+	return mgr.request(ctx, "Status", []Field{
+		{Key: "Channel", Value: channel},
+	})
 }
 
 func SetChannelVar(ctx context.Context, mgr *AsteriskManager, channel string, variable string, value string) (Response, error) {
-	return goami.Setvar(ctx, mgr.socket, mgr.uuid, channel, variable, value)
+	return mgr.request(ctx, "Setvar", []Field{
+		{Key: "Channel", Value: channel},
+		{Key: "Variable", Value: variable},
+		{Key: "Value", Value: value},
+	})
 }
 
 func GetChannelVar(ctx context.Context, mgr *AsteriskManager, channel string, variable string) (Response, error) {
-	return goami.Getvar(ctx, mgr.socket, mgr.uuid, channel, variable)
+	return mgr.request(ctx, "Getvar", []Field{
+		{Key: "Channel", Value: channel},
+		{Key: "Variable", Value: variable},
+	})
 }
 
 func SendRedirect(ctx context.Context, mgr *AsteriskManager, channel string, exten string, context string, priority string) (Response, error) {
-	callData := goami.CallData{
-		Channel:  channel,
-		Exten:    exten,
-		Context:  context,
-		Priority: priority,
-	}
-	return goami.Redirect(ctx, mgr.socket, mgr.uuid, callData)
+	return mgr.request(ctx, "Redirect", []Field{
+		{Key: "Channel", Value: channel},
+		{Key: "Exten", Value: exten},
+		{Key: "Context", Value: context},
+		{Key: "Priority", Value: priority},
+	})
 }
 
 func SendBridge(ctx context.Context, mgr *AsteriskManager, channel1 string, channel2 string, tone string) (Response, error) {
 	if tone == "" {
 		tone = "no"
 	}
-	return goami.Bridge(ctx, mgr.socket, mgr.uuid, channel1, channel2, tone)
+	return mgr.request(ctx, "Bridge", []Field{
+		{Key: "Channel1", Value: channel1},
+		{Key: "Channel2", Value: channel2},
+		{Key: "Tone", Value: tone},
+	})
 }
 
 func SendActionRaw(ctx context.Context, mgr *AsteriskManager, action map[string]string) (map[string]string, error) {

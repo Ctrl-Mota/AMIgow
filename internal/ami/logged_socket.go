@@ -2,57 +2,73 @@ package ami
 
 import (
 	"context"
-	"log"
-
-	goami "github.com/heltonmarx/goami/ami"
+	"io"
+	"net"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
+const (
+	dialTimeout       = 10 * time.Second
+	writeTimeout      = 10 * time.Second
+	handshakeTimeout  = 15 * time.Second
+	steadyReadTimeout = 90 * time.Second
+	keepAlivePeriod   = 30 * time.Second
+)
+
+// LoggedSocket é o dono do net.Conn de uma conexão AMI. Só o dispatcher
+// escreve e só o reader lê; Close pode ser chamado de qualquer goroutine.
 type LoggedSocket struct {
-	*goami.Socket
-	id string
+	id          string
+	conn        net.Conn
+	readTimeout atomic.Int64
+	closeOnce   sync.Once
+	closeErr    error
 }
 
-func NewLoggedSocket(ctx context.Context, address string, id string) (*LoggedSocket, error) {
-	socket, err := goami.NewSocket(ctx, address)
+func dialLoggedSocket(ctx context.Context, address string, id string) (*LoggedSocket, error) {
+	dialer := net.Dialer{Timeout: dialTimeout}
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return nil, err
 	}
 
-	return &LoggedSocket{
-		Socket: socket,
-		id:     id,
-	}, nil
+	if tcp, ok := conn.(*net.TCPConn); ok {
+		tcp.SetKeepAlive(true)
+		tcp.SetKeepAlivePeriod(keepAlivePeriod)
+	}
+
+	socket := &LoggedSocket{id: id, conn: conn}
+	socket.SetReadTimeout(handshakeTimeout)
+	return socket, nil
+}
+
+func (ls *LoggedSocket) SetReadTimeout(timeout time.Duration) {
+	ls.readTimeout.Store(int64(timeout))
+}
+
+func (ls *LoggedSocket) Read(p []byte) (int, error) {
+	timeout := time.Duration(ls.readTimeout.Load())
+	if timeout > 0 {
+		if err := ls.conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+			return 0, err
+		}
+	}
+	return ls.conn.Read(p)
 }
 
 func (ls *LoggedSocket) Send(message string) error {
-	log.Printf("[%s] Enviando mensagem: %s", ls.id, message)
-	return ls.Socket.Send(message)
+	if err := ls.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+		return err
+	}
+	_, err := io.WriteString(ls.conn, message)
+	return err
 }
 
-func (ls *LoggedSocket) Recv(ctx context.Context) (string, error) {
-	data, err := ls.Socket.Recv(ctx)
-	//log.Printf("[%s] Recebendo mensagem: %s", ls.id, data)
-	// if ls.logFile != nil && err == nil && data != "" {
-	// 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
-	// 	fmt.Fprintf(ls.logFile, "\n>>> RECV [%s]\n", timestamp)
-	// 	fmt.Fprintf(ls.logFile, "%s", data)
-	// 	ls.logFile.Sync()
-	// }
-	// //escreva o erro recebido também no log file
-	// if err != nil {
-	// 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
-	// 	fmt.Fprintf(ls.logFile, "\n>>> ERROR [%s]\n", timestamp)
-	// 	fmt.Fprintf(ls.logFile, "%s", data)
-	// 	ls.logFile.Sync()
-	// }
-
-	return data, err
-}
-
-func (ls *LoggedSocket) Close(ctx context.Context) error {
-	return ls.Socket.Close(ctx)
-}
-
-func (ls *LoggedSocket) Connected() bool {
-	return ls.Socket.Connected()
+func (ls *LoggedSocket) Close() error {
+	ls.closeOnce.Do(func() {
+		ls.closeErr = ls.conn.Close()
+	})
+	return ls.closeErr
 }

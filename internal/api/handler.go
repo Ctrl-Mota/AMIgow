@@ -37,7 +37,7 @@ func (h *Handler) HandleAction(ctx context.Context, input *ActionInput) (*Action
 
 	log.Printf("[API] Executando action %s", input.Body.Action["Action"])
 
-	response, err := h.Manager.SendAction(input.Body.Action)
+	response, err := h.Manager.SendAction(ctx, input.Body.Action)
 	if err != nil {
 		log.Printf("[API] Erro ao executar action: %v", err)
 		return nil, errorInternal(fmt.Sprintf("Erro ao executar ação: %v", err))
