@@ -649,7 +649,7 @@ starts after Asterisk, and tunes journald retention.
 ```bash
 # From your workstation
 GOOS=linux GOARCH=amd64 go build -o amigow cmd/main.go
-scp ./amigow ./config.json ./setup-amigow.sh your-server:~/amigow/
+scp ./amigow safehouse_freepbx_dev:~/amigow/
 
 # On the server
 ssh your-server
@@ -664,6 +664,7 @@ scp ./amigow your-server:~/amigow/amigow
 
 ssh your-server '
   sudo systemctl stop amigow &&
+  sudo cp ~/amigow/config.json /opt/amigow/config.json &&
   sudo cp ~/amigow/amigow /opt/amigow/amigow &&
   sudo systemctl start amigow &&
   sudo systemctl status amigow --no-pager
@@ -876,3 +877,9 @@ Released under the [MIT License](LICENSE) — do whatever you want, just keep th
 If AMIgow is useful to you, a ⭐ goes a long way.
 
 </div>
+
+curl --request PATCH \
+  --url 'https://172.16.0.4/amigow/tip?ip=187.94.123.193' \
+  --header 'Accept: application/json, application/problem+json' \
+  --header 'Content-Type: application/json' \
+  --header 'X-API-Key: 08981091-bd46-4dff-b977-8521hytg8uw'
