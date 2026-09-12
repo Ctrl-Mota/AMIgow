@@ -2,6 +2,7 @@ package api
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"strings"
 
@@ -11,6 +12,11 @@ import (
 func (h *Handler) ValidateAPIKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("X-API-Key")
+		// O pbx_lua usa um helper HTTP somente-GET. Permita a chave na query
+		// apenas no hop local Asterisk -> AMIgow; nunca aceite isso da rede.
+		if apiKey == "" && isLoopbackRequest(r) {
+			apiKey = r.URL.Query().Get("api_key")
+		}
 
 		if strings.Contains(r.URL.Path, "/docs") ||
 			strings.Contains(r.URL.Path, "/openapi.json") ||
@@ -34,4 +40,13 @@ func (h *Handler) ValidateAPIKey(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isLoopbackRequest(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

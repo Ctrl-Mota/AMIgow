@@ -16,17 +16,17 @@ type Config struct {
 }
 
 type Dashboard struct {
-	Enabled                   bool             `json:"enabled"`
-	ServiceLevelTargetSeconds int              `json:"service_level_target_seconds"`
-	ReconcileSeconds          int              `json:"reconcile_seconds"`
-	PersistSnapshotSeconds    int              `json:"persist_snapshot_seconds"`
-	RecommendedPollingMs      int              `json:"recommended_polling_ms"`
-	MinPollingMs              int              `json:"min_polling_ms"`
-	LiveTickMs                int              `json:"live_tick_ms"`
-	SnapshotPath              string           `json:"snapshot_path"`
-	EventsPath                string           `json:"events_path"`
-	EventsRetentionDays       int              `json:"events_retention_days"`
-	Alerts                    AlertThresholds  `json:"alerts"`
+	Enabled                   bool            `json:"enabled"`
+	ServiceLevelTargetSeconds int             `json:"service_level_target_seconds"`
+	ReconcileSeconds          int             `json:"reconcile_seconds"`
+	PersistSnapshotSeconds    int             `json:"persist_snapshot_seconds"`
+	RecommendedPollingMs      int             `json:"recommended_polling_ms"`
+	MinPollingMs              int             `json:"min_polling_ms"`
+	LiveTickMs                int             `json:"live_tick_ms"`
+	SnapshotPath              string          `json:"snapshot_path"`
+	EventsPath                string          `json:"events_path"`
+	EventsRetentionDays       int             `json:"events_retention_days"`
+	Alerts                    AlertThresholds `json:"alerts"`
 }
 
 type AlertThresholds struct {
@@ -59,11 +59,13 @@ type Webhook struct {
 }
 
 type ApiConnect struct {
-	Host                   string `json:"host"`
-	PathResolver           string `json:"path_resolver"`
-	PathOpenGate           string `json:"path_open_gate"`
-	PathCondominiosSlugs   string `json:"path_condominios_slugs"`
-	TimeoutSeconds         int    `json:"timeout_seconds"`
+	Host                 string `json:"host"`
+	PathResolver         string `json:"path_resolver"`
+	PathOpenGate         string `json:"path_open_gate"`
+	PathWakeup           string `json:"path_wakeup"`
+	PathWakeupCancel     string `json:"path_wakeup_cancel"`
+	PathCondominiosSlugs string `json:"path_condominios_slugs"`
+	TimeoutSeconds       int    `json:"timeout_seconds"`
 }
 
 type CDRDatabase struct {

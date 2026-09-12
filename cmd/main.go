@@ -300,6 +300,29 @@ func main() {
 	}, handler.HandleOpenGate)
 
 	huma.Register(humaAPI, huma.Operation{
+		OperationID: "get-portaria-wakeup",
+		Method:      http.MethodGet,
+		Path:        "/portaria/wakeup",
+		Summary:     "Acorda o aplicativo para uma chamada de portaria",
+		Description: "Chamado pelo dialplan; repassa os dados ao endpoint autenticado da API sem expor segredos no log.",
+		Tags:        []string{"Asterisk Egress · Portaria Autônoma"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandlePortariaWakeup)
+
+	huma.Register(humaAPI, huma.Operation{
+		OperationID: "get-portaria-wakeup-cancel",
+		Method:      http.MethodGet,
+		Path:        "/portaria/wakeup/cancel",
+		Summary:     "Cancela um wake-up de chamada",
+		Tags:        []string{"Asterisk Egress · Portaria Autônoma"},
+		Security: []map[string][]string{
+			{"apiKey": {}},
+		},
+	}, handler.HandlePortariaWakeupCancel)
+
+	huma.Register(humaAPI, huma.Operation{
 		OperationID: "get-basic-lists-condominios-slugs",
 		Method:      http.MethodGet,
 		Path:        "/basic-lists/condominios-slugs",

@@ -1,5 +1,7 @@
 package api
 
+import "encoding/json"
+
 type ActionRequest struct {
 	Action map[string]string `json:"action" doc:"Ação AMI a ser executada"`
 }
@@ -103,6 +105,24 @@ type DynamicResolverInput struct {
 	Linkedid    string `query:"linkedid"    doc:"Linked ID único da chamada" example:"1737456600.123"`
 }
 
+type PortariaWakeupInput struct {
+	MoradorID   string `query:"moradorId" doc:"ID do morador"`
+	ConfigID    string `query:"configId" doc:"ID da configuração de portaria autônoma"`
+	Linkedid    string `query:"linkedid" doc:"Linked ID único da chamada"`
+	Caller      string `query:"caller" doc:"Número originador"`
+	Ramal       string `query:"ramal" doc:"Ramal WebRTC efêmero reservado"`
+	SipPassword string `query:"sipPassword" doc:"Credencial efêmera do ramal"`
+}
+
+type PortariaWakeupCancelInput struct {
+	SessionID string `query:"sessionId" doc:"ID da sessão de wake-up"`
+	Linkedid  string `query:"linkedid" doc:"Linked ID único da chamada"`
+}
+
+type RawJSONResponse struct {
+	Body json.RawMessage
+}
+
 type OpenGateInput struct {
 	DeviceID string `query:"device_id" doc:"ID do dispositivo da cancela/portão" example:"1"`
 	Linkedid string `query:"linkedid"  doc:"Linked ID único da chamada" example:"1737456600.123"`
@@ -112,15 +132,17 @@ type ResolverConfig struct {
 	CondominioID     int    `json:"condominioId" doc:"Identificador do condomínio" example:"1"`
 	OpenGateDigit    string `json:"openGateDigit" doc:"Dígito DTMF para abertura de cancela" example:"9"`
 	OpenGateDeviceID *int   `json:"openGateDeviceId" doc:"ID do dispositivo da cancela/portão" example:"1"`
+	DialTimeout      int    `json:"dial_timeout" doc:"Tempo máximo de cada tentativa de discagem, em segundos" example:"45"`
 }
 
 type ResolverContact struct {
-	ID        int    `json:"id" doc:"Identificador do contato" example:"1"`
-	Dial      string `json:"dial,omitempty" doc:"Número para discagem (cellphone, portaria)" example:"21995451302"`
-	MoradorID string `json:"moradorId,omitempty" doc:"Identificador do morador quando type é app" example:"1"`
-	Name      string `json:"name" doc:"Nome exibido" example:"João da Silva"`
-	Type      string `json:"type" doc:"Tipo: cellphone, portaria ou app" example:"cellphone"`
-	Repeat    int    `json:"repeat" doc:"Quantidade de tentativas de discagem" example:"2"`
+	ID           int    `json:"id" doc:"Identificador do contato" example:"1"`
+	Dial         string `json:"dial,omitempty" doc:"Número físico para discagem" example:"21995451302"`
+	MoradorID    string `json:"moradorId,omitempty" doc:"Identificador do morador quando o app deve ser priorizado" example:"1"`
+	Name         string `json:"name" doc:"Nome exibido" example:"João da Silva"`
+	Type         string `json:"type" doc:"Tipo físico: cellphone ou portaria; app é aceito apenas por compatibilidade" example:"cellphone"`
+	Repeat       int    `json:"repeat" doc:"Quantidade de repetições do ciclo app mais telefone" example:"2"`
+	PriorizarApp bool   `json:"priorizarApp,omitempty" doc:"Tenta o app antes do número físico deste mesmo contato" example:"true"`
 }
 
 type ResolverResponse struct {

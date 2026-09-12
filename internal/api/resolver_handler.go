@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ var condominiosSlugsCache struct {
 	expiresAt time.Time
 }
 
-func (h *Handler) HandleDynamicResolver(ctx context.Context, input *DynamicResolverInput) (*ResolverResponse, error) {
+func (h *Handler) HandleDynamicResolver(ctx context.Context, input *DynamicResolverInput) (*RawJSONResponse, error) {
 	if input.Linkedid == "" {
 		return nil, errorBadRequest("parâmetro linkedid é obrigatório")
 	}
@@ -42,13 +43,73 @@ func (h *Handler) HandleDynamicResolver(ctx context.Context, input *DynamicResol
 		log.Printf("[RESOLVER] Erro ao chamar API externa: %v", err)
 		return nil, errorInternal(fmt.Sprintf("erro ao resolver: %v", err))
 	}
-	log.Printf("[RESOLVER] Resposta: %s", string(raw))
-	result := &ResolverResponse{}
-	if err := json.Unmarshal(raw, &result.Body); err != nil {
-		log.Printf("[RESOLVER] Resposta não compatível com o schema esperado: %v", err)
-		return nil, errorInternal("resposta da API de resolução em formato inválido")
+	// Não desserializar para um schema local: o dialplan é o consumidor do
+	// contrato e campos novos da API precisam atravessar o proxy intactos.
+	return &RawJSONResponse{Body: json.RawMessage(raw)}, nil
+}
+
+func (h *Handler) HandlePortariaWakeup(ctx context.Context, input *PortariaWakeupInput) (*RawJSONResponse, error) {
+	if input.MoradorID == "" || input.ConfigID == "" || input.Linkedid == "" ||
+		input.Caller == "" || input.Ramal == "" || input.SipPassword == "" {
+		return nil, errorBadRequest("parâmetros obrigatórios ausentes no wake-up")
 	}
-	return result, nil
+	moradorID, err := strconv.Atoi(input.MoradorID)
+	if err != nil || moradorID <= 0 {
+		return nil, errorBadRequest("moradorId inválido")
+	}
+	configID, err := strconv.Atoi(input.ConfigID)
+	if err != nil || configID <= 0 {
+		return nil, errorBadRequest("configId inválido")
+	}
+
+	cfg := config.Current.ApiConnect
+	url := cfg.Host + cfg.PathWakeup
+	if cfg.PathWakeup == "" {
+		return nil, errorInternal("path_wakeup não configurado")
+	}
+
+	// Nunca registrar senha SIP nem URL completa com query.
+	log.Printf("[PORTARIA-WAKEUP] POST configId=%s linkedid=%s ramal=%s", input.ConfigID, input.Linkedid, input.Ramal)
+
+	body := map[string]any{
+		"moradorId":   moradorID,
+		"configId":    configID,
+		"linkedid":    input.Linkedid,
+		"caller":      input.Caller,
+		"ramal":       input.Ramal,
+		"sipPassword": input.SipPassword,
+	}
+
+	raw, err := postJSON(ctx, url, body, cfg.TimeoutSeconds)
+	if err != nil {
+		log.Printf("[PORTARIA-WAKEUP] API externa recusou linkedid=%s: %v", input.Linkedid, err)
+		return nil, errorInternal(fmt.Sprintf("erro ao iniciar wake-up: %v", err))
+	}
+
+	return &RawJSONResponse{Body: json.RawMessage(raw)}, nil
+}
+
+func (h *Handler) HandlePortariaWakeupCancel(ctx context.Context, input *PortariaWakeupCancelInput) (*RawJSONResponse, error) {
+	if input.SessionID == "" || input.Linkedid == "" {
+		return nil, errorBadRequest("sessionId e linkedid são obrigatórios")
+	}
+
+	cfg := config.Current.ApiConnect
+	url := cfg.Host + cfg.PathWakeupCancel
+	if cfg.PathWakeupCancel == "" {
+		return nil, errorInternal("path_wakeup_cancel não configurado")
+	}
+
+	log.Printf("[PORTARIA-WAKEUP] Cancelando sessionId=%s linkedid=%s", input.SessionID, input.Linkedid)
+	raw, err := postJSON(ctx, url, map[string]string{
+		"sessionId": input.SessionID,
+		"linkedid":  input.Linkedid,
+	}, cfg.TimeoutSeconds)
+	if err != nil {
+		return nil, errorInternal(fmt.Sprintf("erro ao cancelar wake-up: %v", err))
+	}
+
+	return &RawJSONResponse{Body: json.RawMessage(raw)}, nil
 }
 
 func (h *Handler) HandleOpenGate(ctx context.Context, input *OpenGateInput) (*ResolverResponse, error) {
@@ -141,7 +202,7 @@ func applyOutboundHeaders(req *http.Request) {
 	}
 }
 
-func postJSON(ctx context.Context, url string, body map[string]string, timeoutSeconds int) ([]byte, error) {
+func postJSON(ctx context.Context, url string, body any, timeoutSeconds int) ([]byte, error) {
 	timeout := outboundHTTPTimeout(url, timeoutSeconds)
 	client := &http.Client{Timeout: timeout}
 
