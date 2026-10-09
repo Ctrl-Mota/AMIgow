@@ -63,7 +63,7 @@ type ApiConnect struct {
 	PathResolver         string `json:"path_resolver"`
 	PathOpenGate         string `json:"path_open_gate"`
 	PathWakeup           string `json:"path_wakeup"`
-	PathWakeupCancel     string `json:"path_wakeup_cancel"`
+	PathWakeupFinalize   string `json:"path_wakeup_finalize"`
 	PathCondominiosSlugs string `json:"path_condominios_slugs"`
 	TimeoutSeconds       int    `json:"timeout_seconds"`
 }

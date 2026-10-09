@@ -89,24 +89,25 @@ func (h *Handler) HandlePortariaWakeup(ctx context.Context, input *PortariaWakeu
 	return &RawJSONResponse{Body: json.RawMessage(raw)}, nil
 }
 
-func (h *Handler) HandlePortariaWakeupCancel(ctx context.Context, input *PortariaWakeupCancelInput) (*RawJSONResponse, error) {
+func (h *Handler) HandlePortariaWakeupFinalize(ctx context.Context, input *PortariaWakeupFinalizeInput) (*RawJSONResponse, error) {
 	if input.SessionID == "" || input.Linkedid == "" {
 		return nil, errorBadRequest("sessionId e linkedid são obrigatórios")
 	}
 
 	cfg := config.Current.ApiConnect
-	url := cfg.Host + cfg.PathWakeupCancel
-	if cfg.PathWakeupCancel == "" {
-		return nil, errorInternal("path_wakeup_cancel não configurado")
+	url := cfg.Host + cfg.PathWakeupFinalize
+	if cfg.PathWakeupFinalize == "" {
+		return nil, errorInternal("path_wakeup_finalize não configurado")
 	}
 
-	log.Printf("[PORTARIA-WAKEUP] Cancelando sessionId=%s linkedid=%s", input.SessionID, input.Linkedid)
+	log.Printf("[PORTARIA-WAKEUP] Encerrando sessionId=%s linkedid=%s reason=%s", input.SessionID, input.Linkedid, input.Reason)
 	raw, err := postJSON(ctx, url, map[string]string{
 		"sessionId": input.SessionID,
 		"linkedid":  input.Linkedid,
+		"reason":    input.Reason,
 	}, cfg.TimeoutSeconds)
 	if err != nil {
-		return nil, errorInternal(fmt.Sprintf("erro ao cancelar wake-up: %v", err))
+		return nil, errorInternal(fmt.Sprintf("erro ao finalizar wake-up: %v", err))
 	}
 
 	return &RawJSONResponse{Body: json.RawMessage(raw)}, nil

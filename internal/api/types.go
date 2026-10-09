@@ -81,6 +81,7 @@ type WebhookCallbackPayload struct {
 	Cause       string            `json:"cause,omitempty" doc:"Código da causa do evento" example:"16"`
 	CauseText   string            `json:"cause_text,omitempty" doc:"Texto descritivo da causa" example:"Normal clearing"`
 	Duration    string            `json:"duration,omitempty" doc:"Duração em segundos" example:"45"`
+	SipCallID   string            `json:"sip_call_id,omitempty" doc:"Call-ID SIP da tentativa do agente" example:"8f6c1b2d@example.invalid"`
 	RawData     map[string]string `json:"raw_data" doc:"Dados brutos do evento AMI"`
 }
 
@@ -114,9 +115,10 @@ type PortariaWakeupInput struct {
 	SipPassword string `query:"sipPassword" doc:"Credencial efêmera do ramal"`
 }
 
-type PortariaWakeupCancelInput struct {
+type PortariaWakeupFinalizeInput struct {
 	SessionID string `query:"sessionId" doc:"ID da sessão de wake-up"`
 	Linkedid  string `query:"linkedid" doc:"Linked ID único da chamada"`
+	Reason    string `query:"reason" doc:"Motivo terminal: completed, fallback, origin_hangup ou cancelled" example:"completed"`
 }
 
 type RawJSONResponse struct {
@@ -136,13 +138,13 @@ type ResolverConfig struct {
 }
 
 type ResolverContact struct {
-	ID           int    `json:"id" doc:"Identificador do contato" example:"1"`
-	Dial         string `json:"dial,omitempty" doc:"Número físico para discagem" example:"21995451302"`
-	MoradorID    string `json:"moradorId,omitempty" doc:"Identificador do morador quando o app deve ser priorizado" example:"1"`
-	Name         string `json:"name" doc:"Nome exibido" example:"João da Silva"`
-	Type         string `json:"type" doc:"Tipo físico: cellphone ou portaria; app é aceito apenas por compatibilidade" example:"cellphone"`
-	Repeat       int    `json:"repeat" doc:"Quantidade de repetições do ciclo app mais telefone" example:"2"`
-	PriorizarApp bool   `json:"priorizarApp,omitempty" doc:"Tenta o app antes do número físico deste mesmo contato" example:"true"`
+	ID          int    `json:"id" doc:"Identificador do contato" example:"1"`
+	Dial        string `json:"dial,omitempty" doc:"Número físico final para discagem, incluindo prefixo quando configurado" example:"021995451302"`
+	MoradorID   string `json:"moradorId,omitempty" doc:"Identificador do morador quando o modo usa o aplicativo" example:"1"`
+	Name        string `json:"name" doc:"Nome exibido" example:"João da Silva"`
+	Type        string `json:"type" doc:"Tipo físico do contato" example:"cellphone"`
+	Repeat      int    `json:"repeat" doc:"Quantidade de repetições da tentativa do contato" example:"2"`
+	ModoLigacao uint8  `json:"modoLigacao" doc:"0 somente telefone; 1 aplicativo e telefone; 2 somente aplicativo" example:"1"`
 }
 
 type ResolverResponse struct {

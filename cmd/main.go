@@ -42,13 +42,20 @@ func main() {
 
 	log.Printf("Configuração carregada: servidor AMI %s", config.Current.ID)
 
+	rawEventChan := make(chan ami.Event, 1000)
 	eventChan := make(chan ami.Event, 1000)
 
 	manager, err := ami.NewAsteriskManager(ctx, config.Current.ID, config.Current.AMIServer)
 	if err != nil {
 		log.Fatalf("Falha ao conectar AMI %s: %v", config.Current.ID, err)
 	}
-	manager.Start(eventChan)
+	manager.Start(rawEventChan)
+	enrichmentDone := make(chan struct{})
+	go func() {
+		enrichAgentCalledEvents(ctx, manager, rawEventChan, eventChan, 800*time.Millisecond, ami.GetChannelVar)
+		close(eventChan)
+		close(enrichmentDone)
+	}()
 
 	cdrDB, err := cdr.Open()
 	if err != nil {
@@ -312,15 +319,15 @@ func main() {
 	}, handler.HandlePortariaWakeup)
 
 	huma.Register(humaAPI, huma.Operation{
-		OperationID: "get-portaria-wakeup-cancel",
+		OperationID: "get-portaria-wakeup-finalize",
 		Method:      http.MethodGet,
-		Path:        "/portaria/wakeup/cancel",
-		Summary:     "Cancela um wake-up de chamada",
+		Path:        "/portaria/wakeup/finalize",
+		Summary:     "Finaliza o estado efêmero de uma chamada",
 		Tags:        []string{"Asterisk Egress · Portaria Autônoma"},
 		Security: []map[string][]string{
 			{"apiKey": {}},
 		},
-	}, handler.HandlePortariaWakeupCancel)
+	}, handler.HandlePortariaWakeupFinalize)
 
 	huma.Register(humaAPI, huma.Operation{
 		OperationID: "get-basic-lists-condominios-slugs",
@@ -404,9 +411,46 @@ func main() {
 
 	cancel()
 
-	close(eventChan)
+	close(rawEventChan)
+	<-enrichmentDone
 
 	log.Println("=== AMIgow - Encerrado ===")
+}
+
+type channelVarGetter func(context.Context, *ami.AsteriskManager, string, string) (ami.Response, error)
+
+// enrichAgentCalledEvents keeps the AMI event order while resolving the SIP
+// Call-ID outside the socket reader. A timeout or AMI error is intentionally
+// non-fatal: the original event is forwarded unchanged.
+func enrichAgentCalledEvents(
+	ctx context.Context,
+	manager *ami.AsteriskManager,
+	src <-chan ami.Event,
+	dst chan<- ami.Event,
+	timeout time.Duration,
+	getVar channelVarGetter,
+) {
+	for event := range src {
+		if event.Type == "agent_called" {
+			destChannel := event.Data["DestChannel"]
+			if destChannel != "" {
+				lookupCtx, cancel := context.WithTimeout(ctx, timeout)
+				response, err := getVar(lookupCtx, manager, destChannel, "CHANNEL(pjsip,call-id)")
+				cancel()
+				if err != nil {
+					log.Printf("[AMI] Call-ID indisponível para agent_called: %v", err)
+				} else if callID := strings.TrimSpace(response.Get("Value")); callID != "" {
+					event.Data["SipCallID"] = callID
+				}
+			}
+		}
+
+		select {
+		case dst <- event:
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func fanOutEvents(src <-chan ami.Event, webhookChan chan<- ami.Event, dashboardChan chan<- ami.Event) {

@@ -21,6 +21,7 @@ type WebhookPayload struct {
 	Cause       string            `json:"cause,omitempty"`
 	CauseText   string            `json:"cause_text,omitempty"`
 	Duration    string            `json:"duration,omitempty"`
+	SipCallID   string            `json:"sip_call_id,omitempty"`
 	RawData     map[string]string `json:"raw_data"`
 }
 
@@ -88,6 +89,7 @@ func buildWebhookPayload(event ami.Event) WebhookPayload {
 		Cause:       event.Data["Cause"],
 		CauseText:   event.Data["Cause-txt"],
 		Duration:    event.Data["Duration"],
+		SipCallID:   event.Data["SipCallID"],
 		RawData:     event.Data,
 	}
 }

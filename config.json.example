@@ -23,7 +23,7 @@
     "path_resolver": "/api/amigow/resolver",
     "path_open_gate": "/api/amigow/open-gate",
     "path_wakeup": "/api/amigow/wakeup",
-    "path_wakeup_cancel": "/api/amigow/wakeup/cancel",
+    "path_wakeup_finalize": "/api/amigow/wakeup/finalize",
     "path_condominios_slugs": "/api/amigow/basic-lists/condominios-slugs",
     "timeout_seconds": 10
   },

@@ -67,6 +67,7 @@ func (h *Handler) HandleWebhookSchema(ctx context.Context, input *struct{}) (*We
 		Cause:       "16",
 		CauseText:   "Normal clearing",
 		Duration:    "45",
+		SipCallID:   "8f6c1b2d@example.invalid",
 		RawData:     map[string]string{"Event": "Newchannel", "Channel": "SIP/1001-0000001"},
 	}
 	result.Body.Headers = map[string]string{
